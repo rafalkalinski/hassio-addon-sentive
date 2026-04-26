@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentive OPS — Device Certificates</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e4e6f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+    .logo { font-size: 1.3rem; font-weight: 700; color: #7c8cf8; }
+    nav a {
+      color: #9ca3af;
+      text-decoration: none;
+      font-size: 0.9rem;
+      margin-left: 1.5rem;
+      transition: color 0.2s;
+    }
+    nav a:hover, nav a.active { color: #7c8cf8; }
+    .card {
+      background: #1c1f2e;
+      border: 1px solid #2a2d3e;
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+    .section-title { font-size: 1rem; font-weight: 600; color: #e4e6f0; }
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 7px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #7c8cf8; color: #fff; }
+    .btn-primary:hover { background: #6374f6; }
+    .btn-danger { background: #2d1b1b; border: 1px solid #5c2626; color: #f87171; }
+    .btn-danger:hover { background: #3d2020; }
+    .btn-secondary { background: #2a2d3e; border: 1px solid #3a3d52; color: #9ca3af; }
+    .btn-secondary:hover { background: #3a3d52; color: #e4e6f0; }
+    .cert-table { width: 100%; border-collapse: collapse; }
+    .cert-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0 0.75rem 0.75rem;
+      border-bottom: 1px solid #2a2d3e;
+    }
+    .cert-table td {
+      padding: 0.9rem 0.75rem;
+      font-size: 0.88rem;
+      border-bottom: 1px solid #1c2030;
+      vertical-align: middle;
+    }
+    .cert-table tr:last-child td { border-bottom: none; }
+    .cert-table .actions { display: flex; gap: 0.5rem; }
+    .fingerprint { font-family: "Courier New", monospace; font-size: 0.78rem; color: #6b7280; }
+    .expiry-ok { color: #4ade80; }
+    .expiry-warn { color: #facc15; }
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: #6b7280;
+      font-size: 0.9rem;
+    }
+    .error-banner {
+      padding: 0.75rem 1rem;
+      background: #2d1b1b;
+      border: 1px solid #5c2626;
+      border-radius: 8px;
+      color: #f87171;
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #1c1f2e;
+      border: 1px solid #2a2d3e;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 420px;
+    }
+    .modal-title { font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .form-field { margin-bottom: 1rem; }
+    .form-field label { display: block; font-size: 0.8rem; color: #9ca3af; margin-bottom: 0.4rem; }
+    .form-field input, .form-field select {
+      width: 100%;
+      padding: 0.6rem 0.9rem;
+      background: #111318;
+      border: 1px solid #2a2d3e;
+      border-radius: 7px;
+      color: #e4e6f0;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-field input:focus, .form-field select:focus { border-color: #7c8cf8; }
+    .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+    .modal-actions .btn { flex: 1; padding: 0.65rem; }
+    /* New cert result */
+    .result-card {
+      background: #162d22;
+      border: 1px solid #166534;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .result-card .result-title { color: #4ade80; font-weight: 600; margin-bottom: 1rem; }
+    .result-card img { max-width: 200px; display: block; margin: 0.5rem auto 1rem; border-radius: 6px; }
+    .result-card a {
+      display: inline-block;
+      color: #7c8cf8;
+      font-size: 0.85rem;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">Sentive OPS</div>
+      <nav>
+        <a href="/status">Status</a>
+        <a href="/devices" class="active">Devices</a>
+      </nav>
+    </div>
+
+    {% if error %}
+    <div class="error-banner">{{ error }}</div>
+    {% endif %}
+
+    {% if new_cert %}
+    <div class="result-card">
+      <div class="result-title">Certificate issued successfully</div>
+      <div style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 0.75rem;">
+        Scan the QR code with your device or download the profile.
+      </div>
+      {% if new_cert.qr_data_uri %}
+      <img src="{{ new_cert.qr_data_uri }}" alt="QR code for mobileconfig">
+      {% endif %}
+      {% if new_cert.mobileconfig_url %}
+      <a href="{{ new_cert.mobileconfig_url }}">Download .mobileconfig</a>
+      {% endif %}
+      {% if new_cert.p12_url %}
+      &nbsp;&nbsp;
+      <a href="{{ new_cert.p12_url }}">Download .p12</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">
+        <div class="section-title">Device Certificates</div>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Device</button>
+      </div>
+
+      {% if certs %}
+      <table class="cert-table">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Fingerprint</th>
+            <th>Expires</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cert in certs %}
+          <tr>
+            <td>{{ cert.label }}</td>
+            <td><span class="fingerprint">{{ cert.fingerprint[:16] }}...</span></td>
+            <td>
+              <span class="{{ 'expiry-warn' if cert.days_remaining is defined and cert.days_remaining < 30 else 'expiry-ok' }}">
+                {{ cert.expires_at or 'N/A' }}
+              </span>
+            </td>
+            <td>
+              <div class="actions">
+                <form method="POST" action="/devices/{{ cert.id }}/renew" style="display:inline;">
+                  <button type="submit" class="btn btn-secondary">Renew</button>
+                </form>
+                <form method="POST" action="/devices/{{ cert.id }}/revoke" style="display:inline;"
+                  onsubmit="return confirm('Revoke this certificate?');">
+                  <button type="submit" class="btn btn-danger">Revoke</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        No device certificates yet. Click "Add Device" to issue one.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Add Device Modal -->
+  <div class="modal-backdrop" id="addModal">
+    <div class="modal">
+      <div class="modal-title">Add Device Certificate</div>
+      <form method="POST" action="/devices/add">
+        <div class="form-field">
+          <label for="label">Device Label</label>
+          <input type="text" id="label" name="label" placeholder="e.g. John's iPhone" required maxlength="64">
+        </div>
+        <div class="form-field">
+          <label for="platform">Platform</label>
+          <select id="platform" name="platform">
+            <option value="ios">iOS / macOS</option>
+            <option value="android">Android</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Issue Certificate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openModal() {
+      document.getElementById('addModal').classList.add('open');
+    }
+    function closeModal() {
+      document.getElementById('addModal').classList.remove('open');
+    }
+    document.getElementById('addModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+</body>
+</html>

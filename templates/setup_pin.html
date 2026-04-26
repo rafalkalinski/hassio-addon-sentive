@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentive OPS — Set PIN</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e4e6f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1c1f2e;
+      border: 1px solid #2a2d3e;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #7c8cf8;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-bottom: 2rem;
+    }
+    .field { margin-bottom: 1.2rem; text-align: left; }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 0.4rem;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: #111318;
+      border: 1px solid #2a2d3e;
+      border-radius: 8px;
+      color: #e4e6f0;
+      font-size: 1.5rem;
+      letter-spacing: 0.5em;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="password"]:focus { border-color: #7c8cf8; }
+    .error {
+      margin-bottom: 1rem;
+      padding: 0.6rem 1rem;
+      background: #2d1b1b;
+      border: 1px solid #5c2626;
+      border-radius: 6px;
+      color: #f87171;
+      font-size: 0.85rem;
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background: #7c8cf8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #6374f6; }
+    .hint {
+      margin-top: 1rem;
+      font-size: 0.78rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Sentive OPS</div>
+    <div class="subtitle">First-time setup — choose a 4-digit PIN to protect this panel</div>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/setup-pin">
+      <div class="field">
+        <label for="pin">New PIN</label>
+        <input
+          type="password"
+          id="pin"
+          name="pin"
+          maxlength="4"
+          inputmode="numeric"
+          pattern="[0-9]{4}"
+          autocomplete="new-password"
+          autofocus
+          required
+        >
+      </div>
+      <div class="field">
+        <label for="confirm_pin">Confirm PIN</label>
+        <input
+          type="password"
+          id="confirm_pin"
+          name="confirm_pin"
+          maxlength="4"
+          inputmode="numeric"
+          pattern="[0-9]{4}"
+          autocomplete="new-password"
+          required
+        >
+      </div>
+      <button type="submit">Set PIN and Continue</button>
+    </form>
+    <p class="hint">This PIN is stored locally on the device. If you forget it, reset the add-on data.</p>
+  </div>
+</body>
+</html>
