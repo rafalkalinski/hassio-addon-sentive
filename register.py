@@ -51,8 +51,25 @@ def generate_keypair_and_csr(ha_instance_name: str) -> tuple[str, str]:
     return csr_pem, private_key_pem
 
 
+def create_long_lived_token() -> str:
+    """Create a real HA long-lived access token via Supervisor proxy."""
+    headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
+    resp = httpx.post(
+        "http://supervisor/core/api/auth/long_lived_access_token",
+        headers=headers,
+        json={"client_name": "Sentive OPS", "lifespan": 365},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     """Perform the full bootstrap registration flow."""
+
+    if not bootstrap_url.startswith("https://"):
+        print("ERROR: Bootstrap URL must use HTTPS", file=sys.stderr)
+        sys.exit(1)
 
     # Fetch HA instance info from Supervisor
     print("Fetching HA instance info from Supervisor...", file=sys.stderr)
@@ -126,14 +143,21 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
             f,
         )
 
-    # POST /complete with SUPERVISOR_TOKEN as long-lived token
-    # The SUPERVISOR_TOKEN is a valid token for add-on API usage.
+    # Create a real long-lived access token to send to OPS server
+    print("Creating long-lived access token...", file=sys.stderr)
+    try:
+        ha_long_lived_token = create_long_lived_token()
+    except Exception as exc:
+        print(f"ERROR: Failed to create long-lived token: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    # POST /complete with real long-lived token
     print("Completing registration...", file=sys.stderr)
     try:
         resp = httpx.post(
             f"{bootstrap_url}/complete",
             json={
-                "ha_long_lived_token": SUPERVISOR_TOKEN,
+                "ha_long_lived_token": ha_long_lived_token,
                 "ha_version": ha_version,
             },
             headers={"Authorization": f"Bearer {short_lived_jwt}"},

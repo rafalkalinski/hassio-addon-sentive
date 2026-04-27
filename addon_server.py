@@ -36,6 +36,9 @@ SESSION_KEY_FILE = DATA_DIR / "session-secret.key"
 
 app = Flask(__name__, template_folder="/templates")
 
+# PIN brute force protection state
+_pin_attempts: dict = {"count": 0, "lockout_until": 0.0}
+
 
 # Load or generate session secret key
 def _get_session_secret() -> str:
@@ -175,11 +178,24 @@ def pin():
 
     error = None
     if request.method == "POST":
-        entered = request.form.get("pin", "")
-        if _check_pin(entered):
-            session["authenticated"] = True
-            return redirect(url_for("status"))
-        error = "Incorrect PIN. Please try again."
+        now = time.time()
+        if now < _pin_attempts["lockout_until"]:
+            remaining = int(_pin_attempts["lockout_until"] - now)
+            error = f"Too many failed attempts. Try again in {remaining} seconds."
+        else:
+            entered = request.form.get("pin", "")
+            if _check_pin(entered):
+                _pin_attempts["count"] = 0
+                _pin_attempts["lockout_until"] = 0.0
+                session["authenticated"] = True
+                return redirect(url_for("status"))
+            else:
+                _pin_attempts["count"] += 1
+                if _pin_attempts["count"] >= 5:
+                    _pin_attempts["lockout_until"] = now + 60.0
+                    error = "Too many failed attempts. Try again in 60 seconds."
+                else:
+                    error = "Incorrect PIN. Please try again."
 
     return render_template("pin_gate.html", error=error)
 
@@ -207,8 +223,13 @@ def devices():
                 headers=_api_headers(),
                 timeout=10,
             )
-            resp.raise_for_status()
-            certs = resp.json().get("certs", [])
+            if resp.status_code == 401:
+                fetch_error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
+            else:
+                resp.raise_for_status()
+                certs = resp.json().get("certs", [])
+        except httpx.HTTPStatusError as exc:
+            fetch_error = str(exc)
         except Exception as exc:
             fetch_error = str(exc)
 
@@ -236,18 +257,23 @@ def devices_add():
                 json={"label": label, "platform": platform},
                 timeout=30,
             )
-            resp.raise_for_status()
-            result = resp.json()
+            if resp.status_code == 401:
+                error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
+            else:
+                resp.raise_for_status()
+                result = resp.json()
 
-            # Generate QR code from mobileconfig URL or base64 payload
-            mobileconfig = result.get("mobileconfig_b64") or result.get("mobileconfig_url", "")
-            if mobileconfig:
-                qr = qrcode.make(mobileconfig)
-                buf = io.BytesIO()
-                qr.save(buf, format="PNG")
-                result["qr_data_uri"] = (
-                    "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-                )
+                # Generate QR code from mobileconfig URL or base64 payload
+                mobileconfig = result.get("mobileconfig_b64") or result.get("mobileconfig_url", "")
+                if mobileconfig:
+                    qr = qrcode.make(mobileconfig)
+                    buf = io.BytesIO()
+                    qr.save(buf, format="PNG")
+                    result["qr_data_uri"] = (
+                        "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+                    )
+        except httpx.HTTPStatusError as exc:
+            error = str(exc)
         except Exception as exc:
             error = str(exc)
     else:
@@ -282,6 +308,7 @@ def devices_revoke(cert_id: str):
     client = info.get("client_id", "")
     api = _api_url()
 
+    revoke_error = None
     if client and api:
         try:
             resp = httpx.post(
@@ -289,9 +316,29 @@ def devices_revoke(cert_id: str):
                 headers=_api_headers(),
                 timeout=10,
             )
-            resp.raise_for_status()
+            if resp.status_code == 401:
+                revoke_error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
+            else:
+                resp.raise_for_status()
+        except httpx.HTTPStatusError:
+            pass
         except Exception:
             pass
+
+    if revoke_error:
+        certs = []
+        if client and api:
+            try:
+                r = httpx.get(
+                    f"{api}/addon/clients/{client}/device-certs",
+                    headers=_api_headers(),
+                    timeout=10,
+                )
+                r.raise_for_status()
+                certs = r.json().get("certs", [])
+            except Exception:
+                pass
+        return render_template("devices.html", certs=certs, error=revoke_error, info=info)
 
     return redirect(url_for("devices"))
 
@@ -313,17 +360,22 @@ def devices_renew(cert_id: str):
                 headers=_api_headers(),
                 timeout=30,
             )
-            resp.raise_for_status()
-            result = resp.json()
+            if resp.status_code == 401:
+                error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
+            else:
+                resp.raise_for_status()
+                result = resp.json()
 
-            mobileconfig = result.get("mobileconfig_b64") or result.get("mobileconfig_url", "")
-            if mobileconfig:
-                qr = qrcode.make(mobileconfig)
-                buf = io.BytesIO()
-                qr.save(buf, format="PNG")
-                result["qr_data_uri"] = (
-                    "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-                )
+                mobileconfig = result.get("mobileconfig_b64") or result.get("mobileconfig_url", "")
+                if mobileconfig:
+                    qr = qrcode.make(mobileconfig)
+                    buf = io.BytesIO()
+                    qr.save(buf, format="PNG")
+                    result["qr_data_uri"] = (
+                        "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+                    )
+        except httpx.HTTPStatusError as exc:
+            error = str(exc)
         except Exception as exc:
             error = str(exc)
     else:
