@@ -112,10 +112,7 @@ def _client_id() -> str:
 
 
 def _heartbeat_loop() -> None:
-    """Background thread — polls OPS for pin_reset_required flag.
-
-    TODO: poll /addon/clients/{client_id}/pin-reset-required once endpoint exists.
-    """
+    """Background thread — polls OPS for pin_reset_required flag every 30 seconds."""
     while True:
         time.sleep(30)
         try:
@@ -123,14 +120,15 @@ def _heartbeat_loop() -> None:
             api = _api_url()
             if not client or not api:
                 continue
-            # Placeholder — replace with actual pin-reset-required endpoint
-            # resp = httpx.get(
-            #     f"{api}/addon/clients/{client}/pin-reset-required",
-            #     headers=_api_headers(),
-            #     timeout=10,
-            # )
-            # if resp.status_code == 200 and resp.json().get("pin_reset_required"):
-            #     PIN_FILE.unlink(missing_ok=True)
+            resp = httpx.get(
+                f"{api}/addon/clients/{client}/status",
+                headers=_api_headers(),
+                timeout=10,
+            )
+            if resp.status_code == 200 and resp.json().get("pin_reset_required"):
+                PIN_FILE.unlink(missing_ok=True)
+                # Force re-auth on next request by clearing session is not possible from thread,
+                # but removing pin.json means next visit will redirect to setup-pin
         except Exception:
             pass
 
