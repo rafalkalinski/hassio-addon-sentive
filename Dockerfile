@@ -6,7 +6,8 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     py3-cryptography \
-    bcrypt \
+    py3-bcrypt \
+    py3-pillow \
     curl \
     ca-certificates
 
