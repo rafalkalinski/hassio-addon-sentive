@@ -115,6 +115,10 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
         )
         resp.raise_for_status()
         registration = resp.json()
+    except httpx.HTTPStatusError as exc:
+        print(f"ERROR: Bootstrap /register failed: {exc}", file=sys.stderr)
+        print(f"ERROR: Response body: {exc.response.text}", file=sys.stderr)
+        sys.exit(1)
     except Exception as exc:
         print(f"ERROR: Bootstrap /register failed: {exc}", file=sys.stderr)
         sys.exit(1)

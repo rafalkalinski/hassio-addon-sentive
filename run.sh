@@ -13,7 +13,7 @@ BOOTSTRAP_URL="https://bootstrap-dev.sentive.it"
 API_URL="https://api-dev.sentive.it"
 
 # Start ingress UI server immediately — panel stays accessible even during registration
-python3 /addon_server.py &
+gunicorn --chdir / --bind 0.0.0.0:8099 --workers 2 --timeout 30 addon_server:app &
 
 # Run registration if not yet registered
 if [ ! -f "$DATA_DIR/registered" ]; then
