@@ -196,8 +196,10 @@ def main() -> None:
     parser.add_argument("--api-url", required=True, help="Sentive OPS API base URL")
     args = parser.parse_args()
 
+    invite_code = args.invite_code.strip()
+    print(f"Using invite code: {invite_code!r}", file=sys.stderr)
     register(
-        invite_code=args.invite_code,
+        invite_code=invite_code,
         bootstrap_url=args.bootstrap_url,
         api_url=args.api_url,
     )
