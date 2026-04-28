@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentive OPS — Registration Failed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e4e6f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1c1f2e;
+      border: 1px solid #2a2d3e;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #7c8cf8;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-bottom: 2rem;
+    }
+    .error-box {
+      background: #2d1b1b;
+      border: 1px solid #5c2626;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+    .error-box pre {
+      color: #f87171;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    .hint {
+      font-size: 0.82rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Sentive OPS</div>
+    <div class="subtitle">Registration Failed</div>
+    {% if error %}
+    <div class="error-box">
+      <pre>{{ error }}</pre>
+    </div>
+    {% endif %}
+    <p class="hint">Fix the invite code in the add-on configuration and restart the add-on.</p>
+  </div>
+</body>
+</html>

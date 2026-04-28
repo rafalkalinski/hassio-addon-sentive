@@ -4,16 +4,20 @@ set -e
 CONFIG_PATH=/data/options.json
 DATA_DIR=/data
 INVITE_CODE=$(bashio::config 'invite_code')
-BOOTSTRAP_URL=$(bashio::config 'ops_bootstrap_url')
-API_URL=$(bashio::config 'ops_api_url')
+BOOTSTRAP_URL="https://bootstrap-dev.sentive.it"
+API_URL="https://api-dev.sentive.it"
 
 # Run registration if not yet registered
 if [ ! -f "$DATA_DIR/registered" ]; then
     bashio::log.info "Running bootstrap registration..."
-    python3 /register.py \
+    rm -f "$DATA_DIR/registration-error.txt"
+    if ! python3 /register.py \
         --invite-code "$INVITE_CODE" \
         --bootstrap-url "$BOOTSTRAP_URL" \
-        --api-url "$API_URL"
+        --api-url "$API_URL" 2>"$DATA_DIR/registration-error.txt"; then
+        bashio::log.error "Bootstrap registration failed. See /data/registration-error.txt for details."
+        exit 1
+    fi
 fi
 
 # Start ingress UI server in background

@@ -141,11 +141,25 @@ threading.Thread(target=_heartbeat_loop, daemon=True).start()
 # ------------------------------------------------------------------
 
 
+REGISTRATION_ERROR_FILE = DATA_DIR / "registration-error.txt"
+REGISTERED_FILE = DATA_DIR / "registered"
+
+
 @app.route("/")
 def index():
+    if not REGISTERED_FILE.exists() and REGISTRATION_ERROR_FILE.exists():
+        return redirect(url_for("registration_error"))
     if not _pin_is_set():
         return redirect(url_for("setup_pin"))
     return redirect(url_for("pin"))
+
+
+@app.route("/registration-error")
+def registration_error():
+    error_text = ""
+    if REGISTRATION_ERROR_FILE.exists():
+        error_text = REGISTRATION_ERROR_FILE.read_text()
+    return render_template("registration_error.html", error=error_text)
 
 
 @app.route("/setup-pin", methods=["GET", "POST"])
