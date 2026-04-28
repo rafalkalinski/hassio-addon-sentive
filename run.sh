@@ -15,7 +15,7 @@ if [ ! -f "$DATA_DIR/registered" ]; then
         --invite-code "$INVITE_CODE" \
         --bootstrap-url "$BOOTSTRAP_URL" \
         --api-url "$API_URL" 2>"$DATA_DIR/registration-error.txt"; then
-        bashio::log.error "Bootstrap registration failed. See /data/registration-error.txt for details."
+        bashio::log.error "Bootstrap registration failed: $(cat "$DATA_DIR/registration-error.txt")"
         exit 1
     fi
 fi
