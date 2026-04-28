@@ -1,70 +1,55 @@
-# Sentive OPS Add-on — Documentation
+# Sentive OPS — Dokumentacja
 
-## Bootstrap Flow
+## Pierwsze uruchomienie
 
-On first start, the add-on runs `register.py` to register the HA instance with Sentive OPS:
+Po zainstalowaniu dodatku wykonaj kilka prostych kroków:
 
-1. Reads `invite_code`, `ops_bootstrap_url`, and `ops_api_url` from add-on options.
-2. Fetches the HA instance name, version, and external URL from the Supervisor API.
-3. Generates an EC P-256 keypair and a Certificate Signing Request (CSR).
-4. POSTs to `{bootstrap_url}/register` with the invite code, HA metadata, and CSR.
-5. Receives a signed certificate, tunnel token, client ID, and short-lived JWT.
-6. Writes credentials to `/data/` (`sentive-cert.pem`, `sentive-key.pem`, `sentive-info.json`).
-7. Completes registration by POSTing to `{bootstrap_url}/complete` with the Supervisor token.
-8. Writes the cloudflared tunnel token to `/data/cloudflared-token`.
-9. Creates `/data/registered` to prevent re-registration on subsequent starts.
+1. Wpisz **kod zaproszenia** otrzymany od zespołu Sentive w polu konfiguracji dodatku (`invite_code`).
+2. Uruchom dodatek.
+3. Otwórz panel Sentive OPS (zakładka **Sentive OPS** w bocznym menu Home Assistant).
+4. Przy pierwszym uruchomieniu zostaniesz poproszony o ustawienie **4-cyfrowego PIN-u**. Ten PIN będzie chronił dostęp do panelu.
 
-If registration fails, the add-on logs the error and exits. Check the add-on logs for details.
+To wszystko — Twój Home Assistant jest teraz połączony z platformą Sentive OPS.
 
-## PIN Gate
+---
 
-The ingress panel is protected by a 4-digit PIN stored in `/data/pin.json` as a bcrypt hash.
+## Panel Sentive OPS
 
-- First run: you are prompted to set a PIN.
-- Subsequent runs: you must enter the PIN to access the panel.
-- If you forget your PIN, stop the add-on, delete `/data/pin.json` via the Supervisor file editor, and restart.
+Panel składa się z dwóch zakładek:
 
-A background thread polls for a PIN reset signal from Sentive OPS. When the reset endpoint is
-implemented, it will wipe `/data/pin.json` and prompt for a new PIN without requiring manual
-file deletion.
+### Status
 
-## Device Certificate Management
+Wyświetla informacje o połączeniu Twojego Home Assistant z platformą Sentive OPS — m.in. czy połączenie jest aktywne i podstawowe dane Twojej instalacji.
 
-Navigate to the **Devices** tab in the ingress panel to manage mTLS device certificates.
+### Urządzenia
 
-- **Add Device**: Issues a new certificate for a labelled device (iOS/macOS or Android).
-  After issuance, a QR code is displayed for scanning the `.mobileconfig` profile.
-- **Renew**: Re-issues a certificate before it expires. A new QR code is provided.
-- **Revoke**: Permanently revokes the certificate. The device will lose tunnel access.
+Tutaj zarządzasz dostępem do swojego Home Assistant z telefonu lub komputera. Możesz dodawać urządzenia, odnawiać im dostęp lub go cofać.
 
-All certificate operations call `{ops_api_url}/addon/clients/{client_id}/device-certs` with
-Bearer token authentication using the JWT stored in `/data/sentive-info.json`.
+---
 
-Note: The JWT issued during bootstrap is short-lived (30 minutes). In the current version,
-refresh is not implemented — if the JWT expires, re-registration is required. A token refresh
-mechanism will be added in a future release.
+## Dostęp z telefonu / komputera
 
-## Troubleshooting
+W zakładce **Urządzenia** możesz dodać dowolne urządzenie mobilne lub komputer:
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Add-on fails to start | Invalid or already-used invite code | Obtain a fresh invite code from Sentive OPS |
-| Panel shows blank / 502 | Flask server not started | Check add-on logs for Python errors |
-| Tunnel not connecting | Invalid tunnel token | Re-register by deleting `/data/registered` and restarting |
-| PIN prompt loops | `pin.json` corrupted | Delete `/data/pin.json` and restart |
-| Device cert list empty | JWT expired | Re-register (delete `/data/registered`) to obtain a fresh JWT |
+1. Kliknij **Dodaj urządzenie** i nadaj mu nazwę (np. „iPhone Rafała").
+2. Na ekranie pojawi się kod QR.
+3. Zeskanuj kod QR na telefonie lub postępuj zgodnie z instrukcją wyświetloną dla komputera.
+4. Urządzenie otrzyma certyfikat dostępowy umożliwiający połączenie z Twoim Home Assistant przez platformę Sentive OPS.
 
-## Data Files
+Jeśli urządzenie nie jest już używane, możesz cofnąć mu dostęp w dowolnym momencie, klikając **Odwołaj**.
 
-All persistent state is stored under `/data/` (HA add-on data directory):
+---
 
-| File | Description |
-|------|-------------|
-| `options.json` | Add-on configuration (managed by HA) |
-| `registered` | Marker file — presence means bootstrap completed |
-| `sentive-cert.pem` | mTLS client certificate |
-| `sentive-key.pem` | Private key (mode 0600) |
-| `sentive-info.json` | Client ID, hostnames, API URL, JWT |
-| `cloudflared-token` | Cloudflare tunnel token |
-| `pin.json` | bcrypt-hashed PIN |
-| `session-secret.key` | Flask session signing key |
+## PIN
+
+PIN chroni panel Sentive OPS przed niepowołanym dostępem. Ustawiasz go raz — przy pierwszym uruchomieniu.
+
+Jeśli zapomnisz PIN-u, skontaktuj się z zespołem Sentive: **kontakt@sentive.it** — zresetujemy go zdalnie.
+
+---
+
+## Problemy i kontakt
+
+Jeśli dodatek nie uruchamia się lub wyświetla błąd, napisz do nas: **kontakt@sentive.it**.
+
+Opisz krótko, co widzisz na ekranie lub w logach dodatku — postaramy się pomóc jak najszybciej.
