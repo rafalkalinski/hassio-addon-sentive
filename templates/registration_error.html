@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sentive OPS — Registration Failed</title>
+  <title>Sentive OPS — Rejestracja nie powiodla sie</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -36,15 +36,34 @@
       color: #6b7280;
       margin-bottom: 2rem;
     }
-    .error-box {
+    .error-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f87171;
+      margin-bottom: 1rem;
+    }
+    .message {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    details {
       background: #2d1b1b;
       border: 1px solid #5c2626;
       border-radius: 8px;
-      padding: 1rem;
+      padding: 0.75rem 1rem;
       margin-bottom: 1.5rem;
       text-align: left;
     }
-    .error-box pre {
+    details summary {
+      font-size: 0.82rem;
+      color: #9ca3af;
+      cursor: pointer;
+      user-select: none;
+    }
+    details pre {
+      margin-top: 0.75rem;
       color: #f87171;
       font-size: 0.82rem;
       white-space: pre-wrap;
@@ -54,19 +73,36 @@
     .hint {
       font-size: 0.82rem;
       color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+    .contact {
+      font-size: 0.82rem;
+      color: #6b7280;
+    }
+    .contact a {
+      color: #7c8cf8;
+      text-decoration: none;
+    }
+    .contact a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">Sentive OPS</div>
-    <div class="subtitle">Registration Failed</div>
+    <div class="subtitle">Blad rejestracji dodatku</div>
+    <div class="error-title">Nie udalo sie zarejestrowac dodatku</div>
+    <p class="message">Dodatek nie mogl polaczyc sie z serwerem Sentive OPS. Sprawdz, czy kod zaproszenia jest prawidlowy i czy urzadzenie ma dostep do internetu.</p>
     {% if error %}
-    <div class="error-box">
+    <details>
+      <summary>Szczegoly techniczne</summary>
       <pre>{{ error }}</pre>
-    </div>
+    </details>
     {% endif %}
-    <p class="hint">Fix the invite code in the add-on configuration and restart the add-on.</p>
+    <p class="hint">Popraw kod zaproszenia w konfiguracji dodatku i uruchom go ponownie.</p>
+    <p class="contact">W razie problemow napisz do nas: <a href="mailto:kontakt@sentive.it">kontakt@sentive.it</a></p>
   </div>
 </body>
 </html>
