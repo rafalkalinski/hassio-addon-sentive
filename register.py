@@ -13,7 +13,7 @@ import sys
 import httpx
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.x509 import CertificateSigningRequestBuilder, NameAttribute
+from cryptography.x509 import CertificateSigningRequestBuilder, Name, NameAttribute
 from cryptography.x509.oid import NameOID
 
 
@@ -43,7 +43,7 @@ def generate_keypair_and_csr(ha_instance_name: str) -> tuple[str, str]:
     csr = (
         CertificateSigningRequestBuilder()
         .subject_name(
-            [NameAttribute(NameOID.COMMON_NAME, ha_instance_name or "sentive-client")]
+            Name([NameAttribute(NameOID.COMMON_NAME, ha_instance_name or "sentive-client")])
         )
         .sign(private_key, hashes.SHA256())
     )
