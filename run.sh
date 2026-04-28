@@ -8,7 +8,7 @@ if ! grep -q "1.1.1.1" /etc/resolv.conf 2>/dev/null; then
     { echo "nameserver 1.1.1.1"; cat /etc/resolv.conf 2>/dev/null; } | tee /etc/resolv.conf > /dev/null || true
 fi
 
-INVITE_CODE=$(bashio::config 'invite_code')
+INVITE_CODE=$(python3 -c "import json,sys; d=json.load(open('/data/options.json')); sys.stdout.write(d.get('invite_code','').strip())" 2>/dev/null || true)
 BOOTSTRAP_URL="https://bootstrap-dev.sentive.it"
 API_URL="https://api-dev.sentive.it"
 
