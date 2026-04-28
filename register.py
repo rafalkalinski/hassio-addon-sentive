@@ -17,16 +17,23 @@ from cryptography.x509 import CertificateSigningRequestBuilder, NameAttribute
 from cryptography.x509.oid import NameOID
 
 
-SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
+SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN", "")
 DATA_DIR = "/data"
 
 
 def get_supervisor_config() -> dict:
-    """Read HA instance config from Supervisor API."""
-    headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
-    resp = httpx.get("http://supervisor/core/api/config", headers=headers, timeout=10)
-    resp.raise_for_status()
-    return resp.json()
+    """Read HA instance config from Supervisor API. Returns empty dict on failure."""
+    if not SUPERVISOR_TOKEN:
+        print("WARNING: SUPERVISOR_TOKEN not set, skipping Supervisor config fetch", file=sys.stderr)
+        return {}
+    try:
+        headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
+        resp = httpx.get("http://supervisor/core/api/config", headers=headers, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        print(f"WARNING: Failed to fetch Supervisor config: {exc}", file=sys.stderr)
+        return {}
 
 
 def generate_keypair_and_csr(ha_instance_name: str) -> tuple[str, str]:
@@ -73,11 +80,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
     # Fetch HA instance info from Supervisor
     print("Fetching HA instance info from Supervisor...", file=sys.stderr)
-    try:
-        ha_config = get_supervisor_config()
-    except Exception as exc:
-        print(f"ERROR: Failed to fetch Supervisor config: {exc}", file=sys.stderr)
-        sys.exit(1)
+    ha_config = get_supervisor_config()
 
     ha_url = ha_config.get("external_url") or ha_config.get("internal_url") or ""
     ha_version = ha_config.get("version", "unknown")
@@ -148,8 +151,8 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     try:
         ha_long_lived_token = create_long_lived_token()
     except Exception as exc:
-        print(f"ERROR: Failed to create long-lived token: {exc}", file=sys.stderr)
-        sys.exit(1)
+        print(f"WARNING: Failed to create long-lived token: {exc}. Proceeding without it.", file=sys.stderr)
+        ha_long_lived_token = ""
 
     # POST /complete with real long-lived token
     print("Completing registration...", file=sys.stderr)
