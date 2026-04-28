@@ -5,7 +5,7 @@ DATA_DIR=/data
 
 # Ensure external DNS is first (HA Supervisor DNS returns empty answers for external hostnames)
 if ! grep -q "1.1.1.1" /etc/resolv.conf 2>/dev/null; then
-    { echo "nameserver 1.1.1.1"; cat /etc/resolv.conf 2>/dev/null; } > /tmp/resolv.tmp && mv /tmp/resolv.tmp /etc/resolv.conf || true
+    { echo "nameserver 1.1.1.1"; cat /etc/resolv.conf 2>/dev/null; } | tee /etc/resolv.conf > /dev/null || true
 fi
 
 INVITE_CODE=$(bashio::config 'invite_code')

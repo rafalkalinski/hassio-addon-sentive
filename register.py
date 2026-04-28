@@ -103,7 +103,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     print(f"Registering with bootstrap server: {bootstrap_url}...", file=sys.stderr)
     try:
         resp = httpx.post(
-            f"{bootstrap_url}/register",
+            f"{bootstrap_url}/bootstrap/register",
             json={
                 "invite_code": invite_code,
                 "ha_url": ha_url,
@@ -158,7 +158,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     print("Completing registration...", file=sys.stderr)
     try:
         resp = httpx.post(
-            f"{bootstrap_url}/complete",
+            f"{bootstrap_url}/bootstrap/complete",
             json={
                 "ha_long_lived_token": ha_long_lived_token,
                 "ha_version": ha_version,
