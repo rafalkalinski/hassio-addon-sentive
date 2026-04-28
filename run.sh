@@ -3,6 +3,12 @@ set -e
 
 CONFIG_PATH=/data/options.json
 DATA_DIR=/data
+
+# Ensure external DNS is available (HA Supervisor DNS may not resolve CF hostnames)
+if ! grep -q "1.1.1.1" /etc/resolv.conf 2>/dev/null; then
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+fi
+
 INVITE_CODE=$(bashio::config 'invite_code')
 BOOTSTRAP_URL="https://bootstrap-dev.sentive.it"
 API_URL="https://api-dev.sentive.it"
