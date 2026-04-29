@@ -8,6 +8,7 @@ writing credentials and tunnel token to /data for subsequent runs.
 import argparse
 import json
 import os
+import socket
 import sys
 
 import httpx
@@ -21,17 +22,46 @@ SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_
 DATA_DIR = "/data"
 
 
+def dbg(msg: str) -> None:
+    print(f"[DBG] {msg}", file=sys.stderr, flush=True)
+
+
+def check_connectivity(hostname: str) -> None:
+    """DNS resolve + TCP connect check to port 443."""
+    dbg(f"Resolving DNS for {hostname}...")
+    try:
+        addrs = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
+        ip = addrs[0][4][0]
+        dbg(f"  DNS OK → {ip}")
+    except Exception as exc:
+        dbg(f"  DNS FAILED: {exc}")
+        return
+
+    dbg(f"TCP connect to {hostname}:443...")
+    try:
+        with socket.create_connection((hostname, 443), timeout=10):
+            dbg("  TCP OK")
+    except Exception as exc:
+        dbg(f"  TCP FAILED: {exc}")
+
+
 def get_supervisor_config() -> dict:
     """Read HA instance config from Supervisor API. Returns empty dict on failure."""
     if not SUPERVISOR_TOKEN:
+        dbg("SUPERVISOR_TOKEN not set — skipping Supervisor config fetch")
         print("WARNING: SUPERVISOR_TOKEN not set, skipping Supervisor config fetch", file=sys.stderr)
         return {}
+    dbg(f"SUPERVISOR_TOKEN present (len={len(SUPERVISOR_TOKEN)}), fetching HA config...")
     try:
         headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
         resp = httpx.get("http://supervisor/core/api/config", headers=headers, timeout=10)
+        dbg(f"Supervisor response: HTTP {resp.status_code}")
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        dbg(f"Supervisor config keys: {list(data.keys())}")
+        return data
     except Exception as exc:
+        dbg(f"Supervisor config fetch failed: {exc}")
         print(f"WARNING: Failed to fetch Supervisor config: {exc}", file=sys.stderr)
         return {}
 
@@ -60,6 +90,7 @@ def generate_keypair_and_csr(ha_instance_name: str) -> tuple[str, str]:
 
 def create_long_lived_token() -> str:
     """Create a real HA long-lived access token via Supervisor proxy."""
+    dbg("Requesting long-lived token from Supervisor...")
     headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
     resp = httpx.post(
         "http://supervisor/core/api/auth/long_lived_access_token",
@@ -67,6 +98,7 @@ def create_long_lived_token() -> str:
         json={"client_name": "Sentive OPS", "lifespan": 365},
         timeout=10,
     )
+    dbg(f"Long-lived token response: HTTP {resp.status_code}")
     resp.raise_for_status()
     return resp.json()["access_token"]
 
@@ -77,6 +109,11 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     if not bootstrap_url.startswith("https://"):
         print("ERROR: Bootstrap URL must use HTTPS", file=sys.stderr)
         sys.exit(1)
+
+    from urllib.parse import urlparse
+    bootstrap_host = urlparse(bootstrap_url).hostname
+    dbg(f"Bootstrap host: {bootstrap_host}")
+    check_connectivity(bootstrap_host)
 
     # Fetch HA instance info from Supervisor
     print("Fetching HA instance info from Supervisor...", file=sys.stderr)
@@ -95,15 +132,18 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     print("Generating EC P-256 keypair and CSR...", file=sys.stderr)
     try:
         csr_pem, private_key_pem = generate_keypair_and_csr(ha_instance_name)
+        dbg("Keypair generated OK")
     except Exception as exc:
         print(f"ERROR: Failed to generate keypair: {exc}", file=sys.stderr)
         sys.exit(1)
 
     # POST /register to bootstrap server
+    register_url = f"{bootstrap_url}/bootstrap/register"
+    dbg(f"POST {register_url}")
     print(f"Registering with bootstrap server: {bootstrap_url}...", file=sys.stderr)
     try:
         resp = httpx.post(
-            f"{bootstrap_url}/bootstrap/register",
+            register_url,
             json={
                 "invite_code": invite_code,
                 "ha_url": ha_url,
@@ -113,8 +153,13 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
             },
             timeout=30,
         )
+        dbg(f"/register response: HTTP {resp.status_code}")
+        dbg(f"/register response headers: {dict(resp.headers)}")
+        if not resp.is_success:
+            dbg(f"/register response body: {resp.text[:500]}")
         resp.raise_for_status()
         registration = resp.json()
+        dbg(f"/register response keys: {list(registration.keys())}")
     except httpx.HTTPStatusError as exc:
         print(f"ERROR: Bootstrap /register failed: {exc}", file=sys.stderr)
         print(f"ERROR: Response body: {exc.response.text}", file=sys.stderr)
@@ -129,6 +174,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     short_lived_jwt = registration["short_lived_jwt"]
     web_hostname = registration.get("web_hostname", "")
     app_hostname = registration.get("app_hostname", "")
+    dbg(f"Registered client_id={client_id}, web={web_hostname}, app={app_hostname}")
 
     # Write client certificate and private key
     with open(f"{DATA_DIR}/sentive-cert.pem", "w") as f:
@@ -149,20 +195,25 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
             },
             f,
         )
+    dbg("Credentials written to /data")
 
     # Create a real long-lived access token to send to OPS server
     print("Creating long-lived access token...", file=sys.stderr)
     try:
         ha_long_lived_token = create_long_lived_token()
+        dbg("Long-lived token created OK")
     except Exception as exc:
+        dbg(f"Long-lived token creation failed: {exc}")
         print(f"WARNING: Failed to create long-lived token: {exc}. Proceeding without it.", file=sys.stderr)
         ha_long_lived_token = ""
 
     # POST /complete with real long-lived token
+    complete_url = f"{bootstrap_url}/bootstrap/complete"
+    dbg(f"POST {complete_url}")
     print("Completing registration...", file=sys.stderr)
     try:
         resp = httpx.post(
-            f"{bootstrap_url}/bootstrap/complete",
+            complete_url,
             json={
                 "ha_long_lived_token": ha_long_lived_token,
                 "ha_version": ha_version,
@@ -170,7 +221,11 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
             headers={"Authorization": f"Bearer {short_lived_jwt}"},
             timeout=30,
         )
+        dbg(f"/complete response: HTTP {resp.status_code}")
+        if not resp.is_success:
+            dbg(f"/complete response body: {resp.text[:500]}")
         resp.raise_for_status()
+        dbg("/complete OK")
     except Exception as exc:
         print(f"ERROR: Bootstrap /complete failed: {exc}", file=sys.stderr)
         sys.exit(1)
