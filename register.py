@@ -202,6 +202,48 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     _configure_ha_trusted_proxies()
 
 
+def _push_ha_token_to_ops() -> None:
+    """
+    Create a fresh HA long-lived token and push it to OPS.
+    Called on every add-on startup so monitoring stays healthy even after
+    HA restarts or token expiry. Safe to call repeatedly — idempotent.
+    """
+    info_path = f"{DATA_DIR}/sentive-info.json"
+    try:
+        with open(info_path) as f:
+            info = json.load(f)
+    except Exception as exc:
+        dbg(f"Could not read sentive-info.json: {exc}")
+        return
+
+    client_id = info.get("client_id")
+    api_url = info.get("api_url", "").rstrip("/")
+    addon_jwt = info.get("jwt")
+
+    if not all([client_id, api_url, addon_jwt]):
+        dbg("Missing client_id/api_url/jwt in sentive-info.json — skipping token push")
+        return
+
+    try:
+        token = create_long_lived_token()
+        dbg("Long-lived token created OK")
+    except Exception as exc:
+        print(f"WARNING: Failed to create long-lived token: {exc}", file=sys.stderr)
+        return
+
+    try:
+        resp = httpx.put(
+            f"{api_url}/addon/clients/{client_id}/ha-token",
+            json={"ha_long_lived_token": token},
+            headers={"Authorization": f"Bearer {addon_jwt}"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        dbg("HA token pushed to OPS OK — monitoring enabled")
+    except Exception as exc:
+        print(f"WARNING: Failed to push HA token to OPS: {exc}", file=sys.stderr)
+
+
 def _configure_ha_trusted_proxies() -> None:
     """
     Append http.trusted_proxies to HA configuration.yaml so cloudflared
