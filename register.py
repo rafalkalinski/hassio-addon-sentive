@@ -21,8 +21,7 @@ from cryptography.x509.oid import NameOID
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN", "")
 DATA_DIR = "/data"
 
-# Debug: show all env var keys (not values) so we can find the Supervisor token name
-print(f"[DBG] All env var keys: {sorted(os.environ.keys())}", file=sys.stderr, flush=True)
+dbg(f"SUPERVISOR_TOKEN present: {bool(SUPERVISOR_TOKEN)}")
 
 
 def dbg(msg: str) -> None:
