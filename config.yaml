@@ -1,6 +1,6 @@
 name: "Sentive OPS"
 description: "Connect your Home Assistant to Sentive OPS fleet management"
-version: "0.4.19"
+version: "0.4.20"
 slug: "sentive_ops"
 init: false
 arch:
@@ -9,6 +9,7 @@ arch:
   - armv7
 homeassistant_api: true
 hassio_api: true
+auth_api: true
 ingress: true
 ingress_port: 8099
 panel_icon: "mdi:cloud-check"
