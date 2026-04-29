@@ -264,26 +264,55 @@ def _configure_ha_trusted_proxies() -> None:
         return
 
     if re.search(r"^http:", content, re.MULTILINE):
-        print(
-            "WARNING: HA configuration.yaml already has an 'http:' section. "
-            "Add '172.30.0.0/16' to trusted_proxies manually and restart HA.",
-            file=sys.stderr,
-        )
-        return
-
-    try:
-        with open(config_path, "a") as f:
-            f.write(
-                "\n# Sentive OPS — allow cloudflared tunnel to proxy to Home Assistant\n"
-                "http:\n"
-                "  use_x_forwarded_for: true\n"
-                "  trusted_proxies:\n"
-                "    - 172.30.0.0/16\n"
+        if re.search(r"^\s+trusted_proxies:", content, re.MULTILINE):
+            # trusted_proxies key exists, insert the IP
+            new_content = re.sub(
+                r'([ \t]+trusted_proxies:[ \t]*\n)',
+                r'\g<1>    - 172.30.0.0/16\n',
+                content,
+                count=1,
+                flags=re.MULTILINE,
             )
-        dbg("Appended http trusted_proxies to configuration.yaml")
-    except Exception as exc:
-        dbg(f"Could not write HA config: {exc}")
-        return
+        elif re.search(r"^\s+use_x_forwarded_for:", content, re.MULTILINE):
+            # has use_x_forwarded_for but no trusted_proxies
+            new_content = re.sub(
+                r'([ \t]+use_x_forwarded_for:.*\n)',
+                r'\g<1>  trusted_proxies:\n    - 172.30.0.0/16\n',
+                content,
+                count=1,
+                flags=re.MULTILINE,
+            )
+        else:
+            # http: exists but no recognisable sub-keys — insert right after http:
+            new_content = re.sub(
+                r'(^http:[ \t]*\n)',
+                r'\g<1>  use_x_forwarded_for: true\n  trusted_proxies:\n    - 172.30.0.0/16\n',
+                content,
+                count=1,
+                flags=re.MULTILINE,
+            )
+        try:
+            with open(config_path, "w") as f:
+                f.write(new_content)
+            dbg("Updated trusted_proxies in existing http: section")
+        except Exception as exc:
+            dbg(f"Could not write HA config: {exc}")
+            return
+    else:
+        # no http: section — append
+        try:
+            with open(config_path, "a") as f:
+                f.write(
+                    "\n# Sentive OPS — allow cloudflared tunnel to proxy to Home Assistant\n"
+                    "http:\n"
+                    "  use_x_forwarded_for: true\n"
+                    "  trusted_proxies:\n"
+                    "    - 172.30.0.0/16\n"
+                )
+            dbg("Appended http trusted_proxies to configuration.yaml")
+        except Exception as exc:
+            dbg(f"Could not write HA config: {exc}")
+            return
 
     if not SUPERVISOR_TOKEN:
         print("WARNING: Cannot restart HA automatically — no SUPERVISOR_TOKEN.", file=sys.stderr)
@@ -294,7 +323,7 @@ def _configure_ha_trusted_proxies() -> None:
         resp = httpx.post(
             "http://supervisor/core/restart",
             headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"},
-            timeout=10,
+            timeout=60,
         )
         dbg(f"HA restart triggered: {resp.status_code}")
     except Exception as exc:

@@ -40,6 +40,10 @@ if [ ! -f "$DATA_DIR/registered" ]; then
     fi
 fi
 
+# Ensure HA trusted_proxies is configured on every startup (self-healing, idempotent)
+bashio::log.info "Ensuring HA trusted_proxies configuration..."
+python3 -c "import sys; sys.path.insert(0, '/'); from register import _configure_ha_trusted_proxies; _configure_ha_trusted_proxies()" 2>&1 || true
+
 # Start cloudflared tunnel
 TUNNEL_TOKEN=$(cat "$DATA_DIR/cloudflared-token")
 exec cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"
