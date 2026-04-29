@@ -70,10 +70,10 @@ def create_long_lived_token() -> str:
     """
     Create a HA long-lived access token via the Supervisor WebSocket proxy.
 
-    The Supervisor exposes ws://supervisor/core/api/websocket which proxies to
-    HA's WebSocket and authenticates using the Supervisor's own HA token.
-    The add-on authenticates to the Supervisor using SUPERVISOR_TOKEN.
-    After the Supervisor handles HA auth, we issue auth/long_lived_access_token.
+    The Supervisor WS proxy at ws://supervisor/core/api/websocket uses the same
+    HA WebSocket auth protocol: it sends auth_required, the add-on responds with
+    SUPERVISOR_TOKEN as the access_token. The Supervisor validates the token and
+    then handles HA auth internally using its own HA token.
     """
     import asyncio
     import json as _json
@@ -84,20 +84,24 @@ def create_long_lived_token() -> str:
         dbg("Connecting to HA WebSocket via Supervisor proxy...")
         async with websockets.connect(
             "ws://supervisor/core/api/websocket",
-            additional_headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"},
             open_timeout=10,
         ) as ws:
-            # The Supervisor handles HA auth internally.
-            # First message may be auth_ok (Supervisor forwarded it) or silence.
-            # Try to read the first message with a short timeout.
-            try:
-                first_msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
-                dbg(f"First WS message: {first_msg.get('type')}")
-                if first_msg.get("type") == "auth_required":
-                    raise ValueError("Supervisor WS proxy is not handling auth — unexpected auth_required")
-                # auth_ok or other message — connected and ready
-            except asyncio.TimeoutError:
-                dbg("No initial message from Supervisor WS proxy — assuming connected")
+            first_msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            dbg(f"First WS message: {first_msg.get('type')}")
+
+            if first_msg.get("type") == "auth_required":
+                # Respond with SUPERVISOR_TOKEN — the Supervisor proxy validates this
+                # and then authenticates with HA internally using its own HA token.
+                await ws.send(_json.dumps({
+                    "type": "auth",
+                    "access_token": SUPERVISOR_TOKEN,
+                }))
+                auth_result = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                dbg(f"Auth response: {auth_result.get('type')}")
+                if auth_result.get("type") != "auth_ok":
+                    raise ValueError(f"WS auth failed: {auth_result}")
+            elif first_msg.get("type") != "auth_ok":
+                dbg(f"Unexpected first message: {first_msg} — proceeding anyway")
 
             dbg("Requesting long-lived token via Supervisor proxy")
             await ws.send(_json.dumps({
