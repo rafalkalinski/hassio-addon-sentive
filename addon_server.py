@@ -34,7 +34,23 @@ PIN_FILE = DATA_DIR / "pin.json"
 INFO_FILE = DATA_DIR / "sentive-info.json"
 SESSION_KEY_FILE = DATA_DIR / "session-secret.key"
 
+class _IngressFix:
+    """Set SCRIPT_NAME from X-Ingress-Path so Flask url_for() generates correct URLs."""
+    def __init__(self, wsgi_app):
+        self._app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        ingress_path = environ.get("HTTP_X_INGRESS_PATH", "")
+        if ingress_path:
+            environ["SCRIPT_NAME"] = ingress_path
+            path_info = environ.get("PATH_INFO", "")
+            if path_info.startswith(ingress_path):
+                environ["PATH_INFO"] = path_info[len(ingress_path):]
+        return self._app(environ, start_response)
+
+
 app = Flask(__name__, template_folder="/templates")
+app.wsgi_app = _IngressFix(app.wsgi_app)
 
 # PIN brute force protection state
 _pin_attempts: dict = {"count": 0, "lockout_until": 0.0}
