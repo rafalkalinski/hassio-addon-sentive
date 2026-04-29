@@ -19,7 +19,7 @@ SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_
 DATA_DIR = "/data"
 _SENTIVE_HA_USERNAME = "sentive-ops"
 _SENTIVE_HA_CREDS_FILE = f"{DATA_DIR}/ha-sentive-creds.json"
-_SENTIVE_LLAT_FILE = f"{DATA_DIR}/ha-sentive-llat.txt"
+_SENTIVE_REFRESH_TOKEN_FILE = f"{DATA_DIR}/ha-sentive-refresh.txt"
 
 
 def dbg(msg: str) -> None:
@@ -71,13 +71,16 @@ def get_supervisor_config() -> dict:
 
 def create_long_lived_token() -> str:
     """
-    Create a HA long-lived access token (LLAT) via a 3-phase flow:
+    Obtain a HA access token for OPS monitoring via a 2-phase flow:
 
-    1. Supervisor WS proxy (auth via SUPERVISOR_TOKEN) — create a dedicated
-       non-system HA user '_SENTIVE_HA_USERNAME' with a fresh random password.
-       System users cannot create LLATs, so we need a real HA user.
-    2. HA HTTP auth/login_flow — log in as that user to get a short-lived token.
-    3. Direct HA WebSocket — use the short-lived token to create a 10-year LLAT.
+    1. Supervisor WS proxy (auth via SUPERVISOR_TOKEN) — create/reset a dedicated
+       non-system HA user '_SENTIVE_HA_USERNAME'.
+    2. HA HTTP auth/login_flow — log in as that user.
+       Stores the refresh_token to _SENTIVE_REFRESH_TOKEN_FILE for future refreshes.
+       Returns the short-lived access_token (valid 30 min).
+
+    Note: auth/long_lived_access_token is restricted to the 'owner' account in
+    HA 2025+, so we use refresh_token rotation instead (see _push_ha_token_to_ops).
     """
     import asyncio
     import json as _json
@@ -109,7 +112,6 @@ def create_long_lived_token() -> str:
                     pass
 
             if user_id:
-                # Delete old credentials and recreate with new password
                 await ws.send(_json.dumps({
                     "id": 1,
                     "type": "config/auth_provider/homeassistant/delete",
@@ -132,7 +134,6 @@ def create_long_lived_token() -> str:
                 dbg(f"Reset creds failed: {res} — creating new user")
                 user_id = None
 
-            # Create a new non-system HA user (admin group so OPS has full access)
             await ws.send(_json.dumps({
                 "id": 3,
                 "type": "config/auth/create",
@@ -160,8 +161,8 @@ def create_long_lived_token() -> str:
                 _json.dump({"user_id": user_id, "username": _SENTIVE_HA_USERNAME}, f)
             dbg(f"Sentive OPS HA user created id={user_id}")
 
-    async def _login_and_create_llat() -> str:
-        """Authenticate as sentive-ops via HA HTTP login flow, then create a LLAT."""
+    def _login_and_get_tokens() -> str:
+        """Login as sentive-ops, store refresh_token, return access_token."""
         client_id = "http://localhost/"
 
         flow_resp = httpx.post(
@@ -192,7 +193,6 @@ def create_long_lived_token() -> str:
         if submit_data.get("type") != "create_entry":
             raise ValueError(f"Login flow failed: {submit_data}")
 
-        # HA 2024+ returns the code as a plain string; older versions wrap it in {"code": "..."}
         raw_result = submit_data["result"]
         code = raw_result if isinstance(raw_result, str) else raw_result["code"]
         dbg(f"Auth code obtained (type={type(raw_result).__name__})")
@@ -208,38 +208,54 @@ def create_long_lived_token() -> str:
         )
         dbg(f"Token exchange: HTTP {token_resp.status_code}")
         token_resp.raise_for_status()
-        access_token = token_resp.json()["access_token"]
+        token_data = token_resp.json()
+        access_token = token_data["access_token"]
+
+        refresh_token = token_data.get("refresh_token", "")
+        if refresh_token:
+            with open(_SENTIVE_REFRESH_TOKEN_FILE, "w") as f:
+                f.write(refresh_token)
+            dbg("Refresh token stored")
+        else:
+            dbg("WARNING: no refresh_token in response")
+
         dbg("Got HA access token via login flow")
-
-        # Connect directly to HA WS (not Supervisor proxy) with the real user token
-        async with websockets.connect(
-            "ws://homeassistant:8123/api/websocket", open_timeout=10
-        ) as ws:
-            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
-            if msg.get("type") == "auth_required":
-                await ws.send(_json.dumps({"type": "auth", "access_token": access_token}))
-                res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-                dbg(f"Direct HA WS auth: {res.get('type')}")
-                if res.get("type") != "auth_ok":
-                    raise ValueError(f"Direct HA WS auth failed: {res}")
-
-            await ws.send(_json.dumps({
-                "id": 1,
-                "type": "auth/long_lived_access_token",
-                "client_name": "Sentive OPS",
-                "lifespan": 3650,
-            }))
-            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-            dbg(f"LLAT creation: success={msg.get('success')}")
-            if not msg.get("success"):
-                raise ValueError(f"LLAT creation failed: {msg}")
-            return msg["result"]
+        return access_token
 
     async def _run() -> str:
         await _setup_ha_user()
-        return await _login_and_create_llat()
+        return _login_and_get_tokens()
 
     return asyncio.run(_run())
+
+
+def _exchange_refresh_token() -> str:
+    """Exchange the stored refresh_token for a new access_token."""
+    with open(_SENTIVE_REFRESH_TOKEN_FILE) as f:
+        refresh_token = f.read().strip()
+    if not refresh_token:
+        raise ValueError("Empty refresh token file")
+
+    resp = httpx.post(
+        "http://homeassistant:8123/auth/token",
+        data={
+            "client_id": "http://localhost/",
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+        timeout=15,
+    )
+    dbg(f"Refresh exchange: HTTP {resp.status_code}")
+    resp.raise_for_status()
+    data = resp.json()
+
+    new_refresh = data.get("refresh_token")
+    if new_refresh and new_refresh != refresh_token:
+        with open(_SENTIVE_REFRESH_TOKEN_FILE, "w") as f:
+            f.write(new_refresh)
+        dbg("Refresh token rotated")
+
+    return data["access_token"]
 
 
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
@@ -365,37 +381,32 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
 def _push_ha_token_to_ops() -> None:
     """
-    Ensure OPS has a valid HA long-lived access token for monitoring.
-    Uses a locally cached LLAT; creates a new one only if missing or expired.
-    Called on every add-on startup — self-heals monitoring after HA restarts.
-    """
-    llat = None
-    if os.path.exists(_SENTIVE_LLAT_FILE):
-        try:
-            with open(_SENTIVE_LLAT_FILE) as f:
-                llat = f.read().strip()
-            resp = httpx.get(
-                "http://homeassistant:8123/api/config",
-                headers={"Authorization": f"Bearer {llat}"},
-                timeout=10,
-            )
-            if resp.status_code != 200:
-                dbg(f"Cached LLAT rejected (HTTP {resp.status_code}) — recreating")
-                llat = None
-            else:
-                dbg("Cached LLAT is valid")
-        except Exception as exc:
-            dbg(f"LLAT check failed: {exc}")
-            llat = None
+    Push a fresh HA access token to OPS for monitoring.
 
-    if not llat:
+    Uses the stored refresh_token to get a new access_token (30-min valid).
+    If no refresh_token exists, runs the full user-creation + login flow.
+    Called on startup and every 20 min by run.sh to keep the token alive.
+    """
+    access_token = None
+
+    if os.path.exists(_SENTIVE_REFRESH_TOKEN_FILE):
         try:
-            llat = create_long_lived_token()
-            with open(_SENTIVE_LLAT_FILE, "w") as f:
-                f.write(llat)
-            dbg("New LLAT created and cached")
+            access_token = _exchange_refresh_token()
+            dbg("Access token refreshed OK")
         except Exception as exc:
-            print(f"WARNING: Failed to create long-lived token: {exc}", file=sys.stderr)
+            dbg(f"Refresh token exchange failed ({exc}) — recreating credentials")
+            try:
+                os.unlink(_SENTIVE_REFRESH_TOKEN_FILE)
+            except Exception:
+                pass
+            access_token = None
+
+    if not access_token:
+        try:
+            access_token = create_long_lived_token()
+            dbg("New HA credentials created and access token obtained")
+        except Exception as exc:
+            print(f"WARNING: Failed to obtain HA access token: {exc}", file=sys.stderr)
             return
 
     info_path = f"{DATA_DIR}/sentive-info.json"
@@ -417,7 +428,7 @@ def _push_ha_token_to_ops() -> None:
     try:
         resp = httpx.put(
             f"{api_url}/addon/clients/{client_id}/ha-token",
-            json={"ha_long_lived_token": llat},
+            json={"ha_long_lived_token": access_token},
             headers={"Authorization": f"Bearer {addon_jwt}"},
             timeout=15,
         )
