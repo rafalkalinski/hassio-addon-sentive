@@ -131,7 +131,14 @@ def _require_session(f):
 def _api_headers() -> dict:
     info = _load_info()
     jwt = info.get("jwt", "")
-    return {"Authorization": f"Bearer {jwt}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {jwt}", "Content-Type": "application/json"}
+    cf_client_id = info.get("cf_service_client_id", "")
+    cf_client_secret = info.get("cf_service_client_secret", "")
+    if cf_client_id:
+        headers["CF-Access-Client-Id"] = cf_client_id
+    if cf_client_secret:
+        headers["CF-Access-Client-Secret"] = cf_client_secret
+    return headers
 
 
 def _api_url() -> str:

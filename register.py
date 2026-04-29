@@ -179,6 +179,8 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     addon_api_token = registration.get("addon_api_token", short_lived_jwt)
     web_hostname = registration.get("web_hostname", "")
     app_hostname = registration.get("app_hostname", "")
+    cf_service_client_id = registration.get("cf_service_client_id", "")
+    cf_service_client_secret = registration.get("cf_service_client_secret", "")
     dbg(f"Registered client_id={client_id}, web={web_hostname}, app={app_hostname}")
 
     # Write client certificate and private key
@@ -197,6 +199,8 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "app_hostname": app_hostname,
                 "jwt": addon_api_token,
                 "api_url": api_url,
+                "cf_service_client_id": cf_service_client_id,
+                "cf_service_client_secret": cf_service_client_secret,
             },
             f,
         )
