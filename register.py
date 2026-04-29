@@ -21,11 +21,12 @@ from cryptography.x509.oid import NameOID
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN", "")
 DATA_DIR = "/data"
 
-dbg(f"SUPERVISOR_TOKEN present: {bool(SUPERVISOR_TOKEN)}")
-
 
 def dbg(msg: str) -> None:
     print(f"[DBG] {msg}", file=sys.stderr, flush=True)
+
+
+print(f"[DBG] SUPERVISOR_TOKEN present: {bool(SUPERVISOR_TOKEN)}", file=sys.stderr, flush=True)
 
 
 def check_connectivity(hostname: str) -> None:
