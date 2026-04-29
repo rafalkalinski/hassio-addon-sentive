@@ -35,7 +35,13 @@ INFO_FILE = DATA_DIR / "sentive-info.json"
 SESSION_KEY_FILE = DATA_DIR / "session-secret.key"
 
 class _IngressFix:
-    """Set SCRIPT_NAME from X-Ingress-Path so Flask url_for() generates correct URLs."""
+    """
+    Set SCRIPT_NAME from X-Ingress-Path and fix redirect Location headers.
+
+    Belt-and-suspenders: even if url_for() ignores SCRIPT_NAME and generates
+    a bare path like /status, the middleware rewrites the Location header to
+    include the ingress prefix before it reaches the browser.
+    """
     def __init__(self, wsgi_app):
         self._app = wsgi_app
 
@@ -46,6 +52,22 @@ class _IngressFix:
             path_info = environ.get("PATH_INFO", "")
             if path_info.startswith(ingress_path):
                 environ["PATH_INFO"] = path_info[len(ingress_path):]
+
+            def fixing_start_response(status, headers, exc_info=None):
+                if status.startswith("3"):
+                    fixed = []
+                    for name, value in headers:
+                        if (
+                            name.lower() == "location"
+                            and value.startswith("/")
+                            and not value.startswith(ingress_path)
+                        ):
+                            value = ingress_path.rstrip("/") + value
+                        fixed.append((name, value))
+                    return start_response(status, fixed, exc_info)
+                return start_response(status, headers, exc_info)
+
+            return self._app(environ, fixing_start_response)
         return self._app(environ, start_response)
 
 
