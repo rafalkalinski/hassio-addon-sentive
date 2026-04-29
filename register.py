@@ -13,10 +13,6 @@ import socket
 import sys
 
 import httpx
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.x509 import CertificateSigningRequestBuilder, Name, NameAttribute
-from cryptography.x509.oid import NameOID
 
 
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN", "")
@@ -70,28 +66,6 @@ def get_supervisor_config() -> dict:
         return {}
 
 
-def generate_keypair_and_csr(ha_instance_name: str) -> tuple[str, str]:
-    """Generate EC P-256 keypair and CSR. Returns (csr_pem, private_key_pem)."""
-    private_key = ec.generate_private_key(ec.SECP256R1())
-
-    csr = (
-        CertificateSigningRequestBuilder()
-        .subject_name(
-            Name([NameAttribute(NameOID.COMMON_NAME, ha_instance_name or "sentive-client")])
-        )
-        .sign(private_key, hashes.SHA256())
-    )
-
-    csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode()
-    private_key_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    ).decode()
-
-    return csr_pem, private_key_pem
-
-
 def create_long_lived_token() -> str:
     """Create a real HA long-lived access token via Supervisor proxy."""
     dbg("Requesting long-lived token from Supervisor...")
@@ -132,15 +106,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
         file=sys.stderr,
     )
 
-    # Generate keypair and CSR
-    print("Generating EC P-256 keypair and CSR...", file=sys.stderr)
-    try:
-        csr_pem, private_key_pem = generate_keypair_and_csr(ha_instance_name)
-        dbg("Keypair generated OK")
-    except Exception as exc:
-        print(f"ERROR: Failed to generate keypair: {exc}", file=sys.stderr)
-        sys.exit(1)
-
     # POST /register to bootstrap server
     register_url = f"{bootstrap_url}/bootstrap/register"
     dbg(f"POST {register_url}")
@@ -153,7 +118,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "ha_url": ha_url,
                 "ha_instance_name": ha_instance_name,
                 "ha_version": ha_version,
-                "csr_pem": csr_pem,
             },
             timeout=30,
         )
@@ -174,21 +138,11 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
     client_id = registration["client_id"]
     tunnel_token = registration["tunnel_token"]
-    cert_pem = registration["cert_pem"]
     short_lived_jwt = registration["short_lived_jwt"]
     addon_api_token = registration.get("addon_api_token", short_lived_jwt)
     web_hostname = registration.get("web_hostname", "")
     app_hostname = registration.get("app_hostname", "")
-    cf_service_client_id = registration.get("cf_service_client_id", "")
-    cf_service_client_secret = registration.get("cf_service_client_secret", "")
     dbg(f"Registered client_id={client_id}, web={web_hostname}, app={app_hostname}")
-
-    # Write client certificate and private key
-    with open(f"{DATA_DIR}/sentive-cert.pem", "w") as f:
-        f.write(cert_pem)
-    with open(f"{DATA_DIR}/sentive-key.pem", "w") as f:
-        f.write(private_key_pem)
-    os.chmod(f"{DATA_DIR}/sentive-key.pem", 0o600)
 
     # Write client info
     with open(f"{DATA_DIR}/sentive-info.json", "w") as f:
@@ -199,8 +153,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "app_hostname": app_hostname,
                 "jwt": addon_api_token,
                 "api_url": api_url,
-                "cf_service_client_id": cf_service_client_id,
-                "cf_service_client_secret": cf_service_client_secret,
             },
             f,
         )

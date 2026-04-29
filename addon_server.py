@@ -4,22 +4,16 @@ Sentive OPS add-on ingress UI server.
 Flask web server on port 8099 providing:
 - PIN gate (4-digit, bcrypt-hashed, stored in /data/pin.json)
 - Status page (connection info)
-- Device cert management (list/add/revoke/renew via Sentive OPS API)
 """
 
-import base64
-import io
 import json
 import os
 import secrets
-import threading
 import time
 from functools import wraps
 from pathlib import Path
 
 import bcrypt
-import httpx
-import qrcode
 from flask import (
     Flask,
     redirect,
@@ -128,59 +122,6 @@ def _require_session(f):
     return decorated
 
 
-def _api_headers() -> dict:
-    info = _load_info()
-    jwt = info.get("jwt", "")
-    headers = {"Authorization": f"Bearer {jwt}", "Content-Type": "application/json"}
-    cf_client_id = info.get("cf_service_client_id", "")
-    cf_client_secret = info.get("cf_service_client_secret", "")
-    if cf_client_id:
-        headers["CF-Access-Client-Id"] = cf_client_id
-    if cf_client_secret:
-        headers["CF-Access-Client-Secret"] = cf_client_secret
-    return headers
-
-
-def _api_url() -> str:
-    info = _load_info()
-    return info.get("api_url", "")
-
-
-def _client_id() -> str:
-    info = _load_info()
-    return info.get("client_id", "")
-
-
-# ------------------------------------------------------------------
-# Background heartbeat thread
-# ------------------------------------------------------------------
-
-
-def _heartbeat_loop() -> None:
-    """Background thread — polls OPS for pin_reset_required flag every 30 seconds."""
-    while True:
-        time.sleep(30)
-        try:
-            client = _client_id()
-            api = _api_url()
-            if not client or not api:
-                continue
-            resp = httpx.get(
-                f"{api}/addon/clients/{client}/status",
-                headers=_api_headers(),
-                timeout=10,
-            )
-            if resp.status_code == 200 and resp.json().get("pin_reset_required"):
-                PIN_FILE.unlink(missing_ok=True)
-                # Force re-auth on next request by clearing session is not possible from thread,
-                # but removing pin.json means next visit will redirect to setup-pin
-        except Exception:
-            pass
-
-
-threading.Thread(target=_heartbeat_loop, daemon=True).start()
-
-
 # ------------------------------------------------------------------
 # Routes
 # ------------------------------------------------------------------
@@ -271,208 +212,10 @@ def reset_registration():
         DATA_DIR / "registered",
         DATA_DIR / "cloudflared-token",
         DATA_DIR / "sentive-info.json",
-        DATA_DIR / "sentive-cert.pem",
-        DATA_DIR / "sentive-key.pem",
         DATA_DIR / "registration-error.txt",
     ]:
         f.unlink(missing_ok=True)
     return render_template("reset_done.html")
-
-
-@app.route("/devices")
-@_require_session
-def devices():
-    info = _load_info()
-    client = info.get("client_id", "")
-    api = _api_url()
-    certs = []
-    fetch_error = None
-
-    if client and api:
-        try:
-            resp = httpx.get(
-                f"{api}/addon/clients/{client}/device-certs",
-                headers=_api_headers(),
-                timeout=10,
-            )
-            if resp.status_code == 401:
-                fetch_error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
-            else:
-                resp.raise_for_status()
-                certs = resp.json().get("certs", [])
-        except httpx.HTTPStatusError as exc:
-            fetch_error = str(exc)
-        except Exception as exc:
-            fetch_error = str(exc)
-
-    return render_template("devices.html", certs=certs, error=fetch_error, info=info)
-
-
-@app.route("/devices/add", methods=["POST"])
-@_require_session
-def devices_add():
-    info = _load_info()
-    client = info.get("client_id", "")
-    api = _api_url()
-
-    label = request.form.get("label", "My Device").strip()
-    platform = request.form.get("platform", "ios")
-
-    result = None
-    error = None
-
-    if client and api:
-        try:
-            resp = httpx.post(
-                f"{api}/addon/clients/{client}/device-certs",
-                headers=_api_headers(),
-                json={"label": label, "platform": platform},
-                timeout=30,
-            )
-            if resp.status_code == 401:
-                error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
-            else:
-                resp.raise_for_status()
-                result = resp.json()
-
-                # Generate QR code from mobileconfig URL or base64 payload
-                mobileconfig = result.get("mobileconfig_b64") or result.get("mobileconfig_url", "")
-                if mobileconfig:
-                    qr = qrcode.make(mobileconfig)
-                    buf = io.BytesIO()
-                    qr.save(buf, format="PNG")
-                    result["qr_data_uri"] = (
-                        "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-                    )
-        except httpx.HTTPStatusError as exc:
-            error = str(exc)
-        except Exception as exc:
-            error = str(exc)
-    else:
-        error = "Add-on is not registered yet."
-
-    certs = []
-    if client and api:
-        try:
-            r = httpx.get(
-                f"{api}/addon/clients/{client}/device-certs",
-                headers=_api_headers(),
-                timeout=10,
-            )
-            r.raise_for_status()
-            certs = r.json().get("certs", [])
-        except Exception:
-            pass
-
-    return render_template(
-        "devices.html",
-        certs=certs,
-        new_cert=result,
-        error=error,
-        info=info,
-    )
-
-
-@app.route("/devices/<cert_id>/revoke", methods=["POST"])
-@_require_session
-def devices_revoke(cert_id: str):
-    info = _load_info()
-    client = info.get("client_id", "")
-    api = _api_url()
-
-    revoke_error = None
-    if client and api:
-        try:
-            resp = httpx.post(
-                f"{api}/addon/clients/{client}/device-certs/{cert_id}/revoke",
-                headers=_api_headers(),
-                timeout=10,
-            )
-            if resp.status_code == 401:
-                revoke_error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
-            else:
-                resp.raise_for_status()
-        except httpx.HTTPStatusError:
-            pass
-        except Exception:
-            pass
-
-    if revoke_error:
-        certs = []
-        if client and api:
-            try:
-                r = httpx.get(
-                    f"{api}/addon/clients/{client}/device-certs",
-                    headers=_api_headers(),
-                    timeout=10,
-                )
-                r.raise_for_status()
-                certs = r.json().get("certs", [])
-            except Exception:
-                pass
-        return render_template("devices.html", certs=certs, error=revoke_error, info=info)
-
-    return redirect(url_for("devices"))
-
-
-@app.route("/devices/<cert_id>/renew", methods=["POST"])
-@_require_session
-def devices_renew(cert_id: str):
-    info = _load_info()
-    client = info.get("client_id", "")
-    api = _api_url()
-
-    result = None
-    error = None
-
-    if client and api:
-        try:
-            resp = httpx.post(
-                f"{api}/addon/clients/{client}/device-certs/{cert_id}/renew",
-                headers=_api_headers(),
-                timeout=30,
-            )
-            if resp.status_code == 401:
-                error = "API session expired. Contact your Sentive OPS operator to re-register this add-on."
-            else:
-                resp.raise_for_status()
-                result = resp.json()
-
-                mobileconfig = result.get("mobileconfig_b64") or result.get("mobileconfig_url", "")
-                if mobileconfig:
-                    qr = qrcode.make(mobileconfig)
-                    buf = io.BytesIO()
-                    qr.save(buf, format="PNG")
-                    result["qr_data_uri"] = (
-                        "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
-                    )
-        except httpx.HTTPStatusError as exc:
-            error = str(exc)
-        except Exception as exc:
-            error = str(exc)
-    else:
-        error = "Add-on is not registered yet."
-
-    certs = []
-    if client and api:
-        try:
-            r = httpx.get(
-                f"{api}/addon/clients/{client}/device-certs",
-                headers=_api_headers(),
-                timeout=10,
-            )
-            r.raise_for_status()
-            certs = r.json().get("certs", [])
-        except Exception:
-            pass
-
-    return render_template(
-        "devices.html",
-        certs=certs,
-        new_cert=result,
-        error=error,
-        info=info,
-    )
 
 
 if __name__ == "__main__":
