@@ -129,8 +129,8 @@
     <div class="header">
       <div class="logo">Sentive OPS</div>
       <nav>
-        <a href="/status" class="active">Status</a>
-        <a href="/devices">Devices</a>
+        <a href="{{ url_for('status') }}" class="active">Status</a>
+        <a href="{{ url_for('devices') }}">Devices</a>
       </nav>
     </div>
 
@@ -175,7 +175,7 @@
       <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 1rem;">
         Manage mTLS device certificates for secure access from mobile and desktop clients.
       </p>
-      <a href="/devices" class="btn-link">Manage Devices</a>
+      <a href="{{ url_for('devices') }}" class="btn-link">Manage Devices</a>
     </div>
 
     <div class="card">
@@ -183,7 +183,7 @@
       <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 1rem;">
         Clear all registration data. You will need a new invite code and must restart the add-on.
       </p>
-      <form method="post" action="/reset-registration" onsubmit="return confirm('This will remove all registration data. Are you sure?')">
+      <form method="post" action="{{ url_for('reset_registration') }}" onsubmit="return confirm('This will remove all registration data. Are you sure?')">
         <button type="submit" class="btn-danger">Reset Registration</button>
       </form>
     </div>

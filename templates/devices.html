@@ -151,8 +151,8 @@
     <div class="header">
       <div class="logo">Sentive OPS</div>
       <nav>
-        <a href="/status">Status</a>
-        <a href="/devices" class="active">Devices</a>
+        <a href="{{ url_for('status') }}">Status</a>
+        <a href="{{ url_for('devices') }}" class="active">Devices</a>
       </nav>
     </div>
 
@@ -207,10 +207,10 @@
             </td>
             <td>
               <div class="actions">
-                <form method="POST" action="/devices/{{ cert.id }}/renew" style="display:inline;">
+                <form method="POST" action="{{ url_for('devices_renew', cert_id=cert.id) }}" style="display:inline;">
                   <button type="submit" class="btn btn-secondary">Renew</button>
                 </form>
-                <form method="POST" action="/devices/{{ cert.id }}/revoke" style="display:inline;"
+                <form method="POST" action="{{ url_for('devices_revoke', cert_id=cert.id) }}" style="display:inline;"
                   onsubmit="return confirm('Revoke this certificate?');">
                   <button type="submit" class="btn btn-danger">Revoke</button>
                 </form>
@@ -232,7 +232,7 @@
   <div class="modal-backdrop" id="addModal">
     <div class="modal">
       <div class="modal-title">Add Device Certificate</div>
-      <form method="POST" action="/devices/add">
+      <form method="POST" action="{{ url_for('devices_add') }}">
         <div class="form-field">
           <label for="label">Device Label</label>
           <input type="text" id="label" name="label" placeholder="e.g. John's iPhone" required maxlength="64">
