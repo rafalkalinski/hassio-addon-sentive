@@ -8,6 +8,7 @@ writing credentials and tunnel token to /data for subsequent runs.
 import argparse
 import json
 import os
+import re
 import socket
 import sys
 
@@ -241,6 +242,63 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     open(f"{DATA_DIR}/registered", "w").close()
 
     print("Bootstrap registration complete.", file=sys.stderr)
+    _configure_ha_trusted_proxies()
+
+
+def _configure_ha_trusted_proxies() -> None:
+    """
+    Append http.trusted_proxies to HA configuration.yaml so cloudflared
+    can proxy requests without HA returning 400.
+    Restarts HA core via Supervisor API to apply the change.
+    """
+    config_path = "/homeassistant/configuration.yaml"
+    try:
+        with open(config_path) as f:
+            content = f.read()
+    except Exception as exc:
+        dbg(f"Could not read HA config: {exc}")
+        return
+
+    if re.search(r"172\.30\.0\.0/16", content):
+        dbg("HA trusted_proxies already contains 172.30.0.0/16 — skipping")
+        return
+
+    if re.search(r"^http:", content, re.MULTILINE):
+        print(
+            "WARNING: HA configuration.yaml already has an 'http:' section. "
+            "Add '172.30.0.0/16' to trusted_proxies manually and restart HA.",
+            file=sys.stderr,
+        )
+        return
+
+    try:
+        with open(config_path, "a") as f:
+            f.write(
+                "\n# Sentive OPS — allow cloudflared tunnel to proxy to Home Assistant\n"
+                "http:\n"
+                "  use_x_forwarded_for: true\n"
+                "  trusted_proxies:\n"
+                "    - 172.30.0.0/16\n"
+            )
+        dbg("Appended http trusted_proxies to configuration.yaml")
+    except Exception as exc:
+        dbg(f"Could not write HA config: {exc}")
+        return
+
+    if not SUPERVISOR_TOKEN:
+        print("WARNING: Cannot restart HA automatically — no SUPERVISOR_TOKEN.", file=sys.stderr)
+        return
+
+    dbg("Restarting HA core to apply trusted_proxies...")
+    try:
+        resp = httpx.post(
+            "http://supervisor/core/restart",
+            headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"},
+            timeout=10,
+        )
+        dbg(f"HA restart triggered: {resp.status_code}")
+    except Exception as exc:
+        dbg(f"HA restart failed — please restart HA manually: {exc}")
 
 
 def main() -> None:
