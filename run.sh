@@ -3,9 +3,18 @@ set -e
 
 DATA_DIR=/data
 
+# Resolve homeassistant IP before modifying DNS resolvers
+HA_IP=$(python3 -c "import socket; print(socket.gethostbyname('homeassistant'))" 2>/dev/null || true)
+
 # Ensure external DNS is first (HA Supervisor DNS returns empty answers for external hostnames)
 if ! grep -q "1.1.1.1" /etc/resolv.conf 2>/dev/null; then
     { echo "nameserver 1.1.1.1"; cat /etc/resolv.conf 2>/dev/null; } | tee /etc/resolv.conf > /dev/null || true
+fi
+
+# Pin internal hostname so cloudflared can reach HA even after DNS change
+# (1.1.1.1 returns NXDOMAIN for 'homeassistant' and does not fall back to Supervisor DNS)
+if [ -n "$HA_IP" ] && ! grep -q "homeassistant" /etc/hosts 2>/dev/null; then
+    echo "$HA_IP homeassistant" >> /etc/hosts
 fi
 
 INVITE_CODE=$(python3 -c "import json,sys; d=json.load(open('/data/options.json')); sys.stdout.write(d.get('invite_code','').strip())" 2>/dev/null || true)
