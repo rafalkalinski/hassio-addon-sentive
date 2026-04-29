@@ -7,89 +7,100 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #111318;
-      color: #e4e6f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      padding: 1rem;
     }
     .card {
-      background: #1c1f2e;
-      border: 1px solid #2a2d3e;
+      background: #fff;
       border-radius: 12px;
-      padding: 2.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      padding: 2rem 1.75rem;
       width: 100%;
-      max-width: 380px;
-      text-align: center;
+      max-width: 360px;
     }
     .logo {
-      font-size: 1.4rem;
+      font-size: 1.1rem;
       font-weight: 700;
-      letter-spacing: 0.04em;
-      color: #7c8cf8;
-      margin-bottom: 0.5rem;
+      color: #1e40af;
+      margin-bottom: 0.35rem;
+      text-align: center;
     }
     .subtitle {
-      font-size: 0.85rem;
-      color: #6b7280;
-      margin-bottom: 2rem;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 1.75rem;
+      text-align: center;
     }
-    .field { margin-bottom: 1.2rem; text-align: left; }
+    .error {
+      margin-bottom: 1rem;
+      padding: 0.6rem 0.875rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      color: #dc2626;
+      font-size: 0.8rem;
+    }
+    .field { margin-bottom: 1rem; }
     label {
       display: block;
-      font-size: 0.8rem;
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
       color: #9ca3af;
       margin-bottom: 0.4rem;
     }
     input[type="password"] {
       width: 100%;
-      padding: 0.75rem 1rem;
-      background: #111318;
-      border: 1px solid #2a2d3e;
+      padding: 0.7rem 1rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
       border-radius: 8px;
-      color: #e4e6f0;
-      font-size: 1.5rem;
+      color: #111827;
+      font-size: 1.6rem;
       letter-spacing: 0.5em;
       text-align: center;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    input[type="password"]:focus { border-color: #7c8cf8; }
-    .error {
-      margin-bottom: 1rem;
-      padding: 0.6rem 1rem;
-      background: #2d1b1b;
-      border: 1px solid #5c2626;
-      border-radius: 6px;
-      color: #f87171;
-      font-size: 0.85rem;
+    input[type="password"]:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+      background: #fff;
     }
     button {
       width: 100%;
-      padding: 0.75rem;
-      background: #7c8cf8;
+      padding: 0.7rem;
+      background: #2563eb;
       color: #fff;
       border: none;
       border-radius: 8px;
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.15s;
     }
-    button:hover { background: #6374f6; }
+    button:hover { background: #1d4ed8; }
     .hint {
       margin-top: 1rem;
-      font-size: 0.78rem;
-      color: #6b7280;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      text-align: center;
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">Sentive OPS</div>
-    <div class="subtitle">First-time setup — choose a 4-digit PIN to protect this panel</div>
+    <div class="subtitle">Choose a 4-digit PIN to protect this panel</div>
 
     {% if error %}
     <div class="error">{{ error }}</div>
@@ -125,7 +136,7 @@
       </div>
       <button type="submit">Set PIN and Continue</button>
     </form>
-    <p class="hint">This PIN is stored locally on the device. If you forget it, reset the add-on data.</p>
+    <p class="hint">PIN is stored locally on this device. If you forget it, reset the add-on data.</p>
   </div>
 </body>
 </html>

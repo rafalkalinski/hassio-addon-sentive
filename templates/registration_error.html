@@ -3,106 +3,102 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sentive OPS — Rejestracja nie powiodla sie</title>
+  <title>Sentive OPS — Błąd rejestracji</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #111318;
-      color: #e4e6f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      padding: 1rem;
     }
     .card {
-      background: #1c1f2e;
-      border: 1px solid #2a2d3e;
+      background: #fff;
       border-radius: 12px;
-      padding: 2.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 2rem 1.75rem;
       width: 100%;
-      max-width: 480px;
-      text-align: center;
+      max-width: 460px;
     }
     .logo {
-      font-size: 1.4rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: #7c8cf8;
-      margin-bottom: 0.5rem;
-    }
-    .subtitle {
-      font-size: 0.85rem;
-      color: #6b7280;
-      margin-bottom: 2rem;
-    }
-    .error-title {
       font-size: 1.1rem;
-      font-weight: 600;
-      color: #f87171;
-      margin-bottom: 1rem;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 1.25rem;
+      text-align: center;
     }
-    .message {
-      font-size: 0.9rem;
-      color: #9ca3af;
-      line-height: 1.6;
-      margin-bottom: 1.5rem;
+    .error-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.875rem 1rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
     }
+    .error-icon { font-size: 1.1rem; flex-shrink: 0; line-height: 1; }
+    .error-title { font-size: 0.9rem; font-weight: 600; color: #dc2626; margin-bottom: 0.25rem; }
+    .error-msg { font-size: 0.82rem; color: #6b7280; line-height: 1.5; }
     details {
-      background: #2d1b1b;
-      border: 1px solid #5c2626;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
       border-radius: 8px;
       padding: 0.75rem 1rem;
-      margin-bottom: 1.5rem;
-      text-align: left;
+      margin-bottom: 1.25rem;
     }
     details summary {
-      font-size: 0.82rem;
-      color: #9ca3af;
+      font-size: 0.8rem;
+      color: #6b7280;
       cursor: pointer;
       user-select: none;
+      font-weight: 500;
     }
     details pre {
       margin-top: 0.75rem;
-      color: #f87171;
-      font-size: 0.82rem;
+      color: #dc2626;
+      font-size: 0.78rem;
       white-space: pre-wrap;
       word-break: break-word;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-family: "SFMono-Regular", Consolas, monospace;
     }
     .hint {
       font-size: 0.82rem;
       color: #6b7280;
       line-height: 1.6;
-      margin-bottom: 1.25rem;
+      margin-bottom: 0.75rem;
     }
     .contact {
-      font-size: 0.82rem;
-      color: #6b7280;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      text-align: center;
     }
-    .contact a {
-      color: #7c8cf8;
-      text-decoration: none;
-    }
-    .contact a:hover {
-      text-decoration: underline;
-    }
+    .contact a { color: #2563eb; text-decoration: none; }
+    .contact a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">Sentive OPS</div>
-    <div class="subtitle">Blad rejestracji dodatku</div>
-    <div class="error-title">Nie udalo sie zarejestrowac dodatku</div>
-    <p class="message">Dodatek nie mogl polaczyc sie z serwerem Sentive OPS. Sprawdz, czy kod zaproszenia jest prawidlowy i czy urzadzenie ma dostep do internetu.</p>
+    <div class="error-banner">
+      <div class="error-icon">&#9888;</div>
+      <div>
+        <div class="error-title">Rejestracja nie powiodła się</div>
+        <div class="error-msg">Dodatek nie mógł połączyć się z serwerem Sentive OPS. Sprawdź kod zaproszenia i dostęp do internetu.</div>
+      </div>
+    </div>
     {% if error %}
     <details>
-      <summary>Szczegoly techniczne</summary>
+      <summary>Szczegóły techniczne</summary>
       <pre>{{ error }}</pre>
     </details>
     {% endif %}
     <p class="hint">Popraw kod zaproszenia w konfiguracji dodatku i uruchom go ponownie.</p>
-    <p class="contact">W razie problemow napisz do nas: <a href="mailto:kontakt@sentive.it">kontakt@sentive.it</a></p>
+    <p class="contact">Problemy? <a href="mailto:kontakt@sentive.it">kontakt@sentive.it</a></p>
   </div>
 </body>
 </html>

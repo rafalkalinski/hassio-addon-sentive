@@ -36,6 +36,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r /requirements.txt
 COPY run.sh /run.sh
 COPY register.py /register.py
 COPY addon_server.py /addon_server.py
+COPY config.yaml /config.yaml
 COPY templates/ /templates/
 
 RUN chmod +x /run.sh

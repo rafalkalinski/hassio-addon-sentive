@@ -3,199 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sentive OPS — Status</title>
+  <title>Sentive OPS</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #111318;
-      color: #e4e6f0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      padding: 2rem 1rem;
+      background: #f3f4f6;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 1.5rem 1rem;
     }
-    .container { max-width: 640px; margin: 0 auto; }
-    .header {
+    .container { max-width: 600px; margin: 0 auto; }
+    .page-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 1.25rem;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 2rem;
-    }
-    .logo {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: #7c8cf8;
-    }
-    nav a {
-      color: #9ca3af;
-      text-decoration: none;
-      font-size: 0.9rem;
-      margin-left: 1.5rem;
-      transition: color 0.2s;
-    }
-    nav a:hover, nav a.active { color: #7c8cf8; }
-    .card {
-      background: #1c1f2e;
-      border: 1px solid #2a2d3e;
-      border-radius: 12px;
-      padding: 1.75rem;
-      margin-bottom: 1.25rem;
-    }
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
       gap: 0.5rem;
-      background: #162d22;
-      border: 1px solid #166534;
-      border-radius: 999px;
-      padding: 0.4rem 1rem;
-      color: #4ade80;
-      font-weight: 600;
-      font-size: 0.95rem;
-      margin-bottom: 1.5rem;
     }
-    .dot {
-      width: 8px;
-      height: 8px;
+    .page-title-dot {
+      width: 8px; height: 8px;
       border-radius: 50%;
-      background: #4ade80;
+      background: #22c55e;
       animation: pulse 2s infinite;
+      flex-shrink: 0;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+      padding: 1.25rem;
+      margin-bottom: 0.875rem;
     }
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+    }
+    .field-row { margin-bottom: 0.875rem; }
+    .field-row:last-child { margin-bottom: 0; }
     .field-label {
-      font-size: 0.75rem;
-      color: #6b7280;
+      font-size: 0.7rem;
+      font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin-bottom: 0.3rem;
+      color: #9ca3af;
+      margin-bottom: 0.25rem;
     }
     .field-value {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.95rem;
-      color: #e4e6f0;
-      font-family: "Courier New", monospace;
+      font-size: 0.85rem;
+      color: #374151;
+      font-family: "SFMono-Regular", Consolas, monospace;
       word-break: break-all;
     }
-    .field-row { margin-bottom: 1.2rem; }
+    .field-value-text { flex: 1; }
     .copy-btn {
       flex-shrink: 0;
-      background: #2a2d3e;
-      border: 1px solid #3a3d52;
-      border-radius: 6px;
-      color: #9ca3af;
-      font-size: 0.75rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      color: #6b7280;
+      font-size: 0.7rem;
+      font-family: inherit;
       padding: 0.2rem 0.5rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
-    .copy-btn:hover { background: #3a3d52; color: #e4e6f0; }
-    .section-title {
-      font-size: 0.85rem;
+    .copy-btn:hover { background: #f3f4f6; color: #374151; }
+    .status-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      color: #16a34a;
+      font-weight: 500;
+    }
+    .danger-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      padding: 1.25rem;
+      margin-bottom: 0.875rem;
+      border: 1px solid #fecaca;
+    }
+    .danger-title {
+      font-size: 0.7rem;
       font-weight: 600;
-      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #dc2626;
+      margin-bottom: 0.625rem;
+    }
+    .danger-desc {
+      font-size: 0.82rem;
+      color: #6b7280;
       margin-bottom: 1rem;
+      line-height: 1.5;
     }
-    .btn-link {
-      display: inline-block;
-      margin-top: 0.5rem;
-      padding: 0.6rem 1.2rem;
-      background: #7c8cf8;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-    .btn-link:hover { background: #6374f6; }
     .btn-danger {
-      background: none;
-      border: 1px solid #4b1d1d;
-      border-radius: 8px;
-      color: #f87171;
-      font-size: 0.85rem;
       padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      color: #dc2626;
+      font-size: 0.82rem;
+      font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
-    .btn-danger:hover { background: #2d0f0f; border-color: #f87171; }
+    .btn-danger:hover { background: #fef2f2; border-color: #dc2626; }
+    .version-footer {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      margin-top: 1.25rem;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div class="logo">Sentive OPS</div>
-      <nav>
-        <a href="{{ url_for('status') }}" class="active">Status</a>
-        <a href="{{ url_for('devices') }}">Devices</a>
-      </nav>
+    <div class="page-title">
+      <span class="page-title-dot"></span>
+      Sentive OPS
     </div>
 
     <div class="card">
-      <div class="status-badge">
-        <span class="dot"></span>
-        Connected to Sentive OPS
+      <div class="card-title">Connection</div>
+      <div class="field-row">
+        <div class="field-label">Status</div>
+        <div class="status-ok">&#10003; Registered &amp; connected</div>
       </div>
-
       <div class="field-row">
         <div class="field-label">Client ID</div>
         <div class="field-value">
-          <span id="client-id">{{ info.get('client_id', 'N/A') }}</span>
+          <span id="client-id" class="field-value-text">{{ info.get('client_id', 'N/A') }}</span>
           <button class="copy-btn" onclick="copyText('client-id', this)">Copy</button>
         </div>
       </div>
+    </div>
 
+    <div class="card">
+      <div class="card-title">Hostnames</div>
       <div class="field-row">
-        <div class="field-label">Web Hostname</div>
+        <div class="field-label">Web (user access)</div>
         <div class="field-value">
-          <span id="web-hostname">{{ info.get('web_hostname', 'N/A') }}</span>
+          <span id="web-hostname" class="field-value-text">{{ info.get('web_hostname', 'N/A') }}</span>
           <button class="copy-btn" onclick="copyText('web-hostname', this)">Copy</button>
         </div>
       </div>
-
       <div class="field-row">
-        <div class="field-label">App Hostname</div>
+        <div class="field-label">App (OPS monitoring)</div>
         <div class="field-value">
-          <span id="app-hostname">{{ info.get('app_hostname', 'N/A') }}</span>
+          <span id="app-hostname" class="field-value-text">{{ info.get('app_hostname', 'N/A') }}</span>
           <button class="copy-btn" onclick="copyText('app-hostname', this)">Copy</button>
         </div>
       </div>
-
-      <div class="field-row" style="margin-bottom: 0;">
-        <div class="field-label">Status</div>
-        <div class="field-value" style="font-family: inherit; color: #4ade80;">Registered</div>
-      </div>
     </div>
 
-    <div class="card">
-      <div class="section-title">Device Certificates</div>
-      <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 1rem;">
-        Manage mTLS device certificates for secure access from mobile and desktop clients.
-      </p>
-      <a href="{{ url_for('devices') }}" class="btn-link">Manage Devices</a>
-    </div>
-
-    <div class="card">
-      <div class="section-title" style="color: #f87171;">Danger Zone</div>
-      <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 1rem;">
-        Clear all registration data. You will need a new invite code and must restart the add-on.
-      </p>
+    <div class="danger-card">
+      <div class="danger-title">Danger Zone</div>
+      <p class="danger-desc">Clear all registration data. You will need a new invite code and must restart the add-on.</p>
       <form method="post" action="{{ url_for('reset_registration') }}" onsubmit="return confirm('This will remove all registration data. Are you sure?')">
         <button type="submit" class="btn-danger">Reset Registration</button>
       </form>
     </div>
+
+    <div class="version-footer">Sentive OPS Add-on v{{ version }}</div>
   </div>
 
   <script>
-    function copyText(elementId, btn) {
-      var text = document.getElementById(elementId).textContent.trim();
-      navigator.clipboard.writeText(text).then(function() {
-        var original = btn.textContent;
+    function copyText(id, btn) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent.trim()).then(function() {
+        var orig = btn.textContent;
         btn.textContent = 'Copied';
-        setTimeout(function() { btn.textContent = original; }, 1500);
+        setTimeout(function() { btn.textContent = orig; }, 1500);
       });
     }
   </script>

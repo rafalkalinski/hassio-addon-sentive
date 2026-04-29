@@ -8,6 +8,7 @@ Flask web server on port 8099 providing:
 
 import json
 import os
+import re
 import secrets
 import time
 from functools import wraps
@@ -25,6 +26,16 @@ from flask import (
 
 DATA_DIR = Path("/data")
 PIN_FILE = DATA_DIR / "pin.json"
+
+def _read_addon_version() -> str:
+    try:
+        text = Path("/config.yaml").read_text()
+        m = re.search(r'^version:\s*["\']?([^\s"\']+)["\']?', text, re.MULTILINE)
+        return m.group(1) if m else "unknown"
+    except Exception:
+        return "unknown"
+
+ADDON_VERSION = _read_addon_version()
 INFO_FILE = DATA_DIR / "sentive-info.json"
 SESSION_KEY_FILE = DATA_DIR / "session-secret.key"
 
@@ -202,7 +213,7 @@ def pin():
 @_require_session
 def status():
     info = _load_info()
-    return render_template("status.html", info=info)
+    return render_template("status.html", info=info, version=ADDON_VERSION)
 
 
 @app.route("/reset-registration", methods=["POST"])
