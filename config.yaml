@@ -1,6 +1,6 @@
 name: "Sentive OPS"
 description: "Connect your Home Assistant to Sentive OPS fleet management"
-version: "0.5.1"
+version: "0.5.2"
 slug: "sentive_ops"
 init: false
 arch:

@@ -67,18 +67,48 @@ def get_supervisor_config() -> dict:
 
 
 def create_long_lived_token() -> str:
-    """Create a real HA long-lived access token via Supervisor proxy."""
-    dbg("Requesting long-lived token from Supervisor...")
-    headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
-    resp = httpx.post(
-        "http://supervisor/core/api/auth/long_lived_access_token",
-        headers=headers,
-        json={"client_name": "Sentive OPS", "lifespan": 365},
-        timeout=10,
-    )
-    dbg(f"Long-lived token response: HTTP {resp.status_code}")
-    resp.raise_for_status()
-    return resp.json()["access_token"]
+    """
+    Create a HA long-lived access token via the internal WebSocket API.
+
+    SUPERVISOR_TOKEN is a valid HA bearer token at add-on startup time.
+    We connect directly to HA (Docker-internal) and use the
+    auth/long_lived_access_token WebSocket command to get a proper
+    long-lived token that works for external connections from OPS.
+    """
+    import asyncio
+    import json as _json
+
+    import websockets
+
+    async def _create() -> str:
+        dbg("Connecting to HA WebSocket internally...")
+        async with websockets.connect(
+            "ws://homeassistant:8123/api/websocket",
+            open_timeout=10,
+        ) as ws:
+            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            if msg.get("type") != "auth_required":
+                raise ValueError(f"Expected auth_required, got: {msg}")
+
+            await ws.send(_json.dumps({"type": "auth", "access_token": SUPERVISOR_TOKEN}))
+            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            if msg.get("type") != "auth_ok":
+                raise ValueError(f"HA WebSocket auth failed: {msg}")
+
+            dbg("HA WebSocket auth OK — requesting long-lived token")
+            await ws.send(_json.dumps({
+                "id": 1,
+                "type": "auth/long_lived_access_token",
+                "client_name": "Sentive OPS",
+                "lifespan": 3650,
+            }))
+            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            if not msg.get("success"):
+                raise ValueError(f"Failed to create long-lived token: {msg}")
+
+            return msg["result"]
+
+    return asyncio.run(_create())
 
 
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
@@ -204,10 +234,16 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
 def _push_ha_token_to_ops() -> None:
     """
-    Create a fresh HA long-lived token and push it to OPS.
-    Called on every add-on startup so monitoring stays healthy even after
-    HA restarts or token expiry. Safe to call repeatedly — idempotent.
+    Create a fresh HA long-lived token via internal WebSocket and push it to OPS.
+    Called on every add-on startup — self-heals monitoring after HA restarts.
     """
+    try:
+        token = create_long_lived_token()
+        dbg("Long-lived token created OK")
+    except Exception as exc:
+        print(f"WARNING: Failed to create long-lived token: {exc}", file=sys.stderr)
+        return
+
     info_path = f"{DATA_DIR}/sentive-info.json"
     try:
         with open(info_path) as f:
@@ -222,13 +258,6 @@ def _push_ha_token_to_ops() -> None:
 
     if not all([client_id, api_url, addon_jwt]):
         dbg("Missing client_id/api_url/jwt in sentive-info.json — skipping token push")
-        return
-
-    try:
-        token = create_long_lived_token()
-        dbg("Long-lived token created OK")
-    except Exception as exc:
-        print(f"WARNING: Failed to create long-lived token: {exc}", file=sys.stderr)
         return
 
     try:
