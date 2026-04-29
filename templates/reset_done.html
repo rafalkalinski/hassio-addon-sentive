@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentive OPS — Registration Reset</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e4e6f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+    .logo { font-size: 1.3rem; font-weight: 700; color: #7c8cf8; }
+    .card {
+      background: #1c1f2e;
+      border: 1px solid #2a2d3e;
+      border-radius: 12px;
+      padding: 1.75rem;
+    }
+    .title { font-size: 1.1rem; font-weight: 700; color: #f87171; margin-bottom: 1rem; }
+    .message { font-size: 0.95rem; color: #9ca3af; line-height: 1.6; }
+    .steps { margin-top: 1.2rem; padding-left: 1.2rem; }
+    .steps li { margin-bottom: 0.5rem; font-size: 0.9rem; color: #d1d5db; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">Sentive OPS</div>
+    </div>
+    <div class="card">
+      <div class="title">Registration cleared</div>
+      <div class="message">
+        All registration data has been removed. To complete re-registration:
+        <ol class="steps">
+          <li>Enter a new invite code in the add-on configuration.</li>
+          <li>Restart the add-on from Home Assistant.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

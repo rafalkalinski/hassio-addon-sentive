@@ -235,6 +235,21 @@ def status():
     return render_template("status.html", info=info)
 
 
+@app.route("/reset-registration", methods=["POST"])
+@_require_session
+def reset_registration():
+    for f in [
+        DATA_DIR / "registered",
+        DATA_DIR / "cloudflared-token",
+        DATA_DIR / "sentive-info.json",
+        DATA_DIR / "sentive-cert.pem",
+        DATA_DIR / "sentive-key.pem",
+        DATA_DIR / "registration-error.txt",
+    ]:
+        f.unlink(missing_ok=True)
+    return render_template("reset_done.html")
+
+
 @app.route("/devices")
 @_require_session
 def devices():

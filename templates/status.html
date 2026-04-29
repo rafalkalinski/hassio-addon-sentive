@@ -111,6 +111,17 @@
       transition: background 0.2s;
     }
     .btn-link:hover { background: #6374f6; }
+    .btn-danger {
+      background: none;
+      border: 1px solid #4b1d1d;
+      border-radius: 8px;
+      color: #f87171;
+      font-size: 0.85rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-danger:hover { background: #2d0f0f; border-color: #f87171; }
   </style>
 </head>
 <body>
@@ -165,6 +176,16 @@
         Manage mTLS device certificates for secure access from mobile and desktop clients.
       </p>
       <a href="/devices" class="btn-link">Manage Devices</a>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="color: #f87171;">Danger Zone</div>
+      <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 1rem;">
+        Clear all registration data. You will need a new invite code and must restart the add-on.
+      </p>
+      <form method="post" action="/reset-registration" onsubmit="return confirm('This will remove all registration data. Are you sure?')">
+        <button type="submit" class="btn-danger">Reset Registration</button>
+      </form>
     </div>
   </div>
 
