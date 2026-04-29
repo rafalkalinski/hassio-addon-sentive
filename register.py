@@ -192,7 +192,10 @@ def create_long_lived_token() -> str:
         if submit_data.get("type") != "create_entry":
             raise ValueError(f"Login flow failed: {submit_data}")
 
-        code = submit_data["result"]["code"]
+        # HA 2024+ returns the code as a plain string; older versions wrap it in {"code": "..."}
+        raw_result = submit_data["result"]
+        code = raw_result if isinstance(raw_result, str) else raw_result["code"]
+        dbg(f"Auth code obtained (type={type(raw_result).__name__})")
 
         token_resp = httpx.post(
             "http://homeassistant:8123/auth/token",
