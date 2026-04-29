@@ -176,6 +176,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     tunnel_token = registration["tunnel_token"]
     cert_pem = registration["cert_pem"]
     short_lived_jwt = registration["short_lived_jwt"]
+    addon_api_token = registration.get("addon_api_token", short_lived_jwt)
     web_hostname = registration.get("web_hostname", "")
     app_hostname = registration.get("app_hostname", "")
     dbg(f"Registered client_id={client_id}, web={web_hostname}, app={app_hostname}")
@@ -194,7 +195,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "client_id": client_id,
                 "web_hostname": web_hostname,
                 "app_hostname": app_hostname,
-                "jwt": short_lived_jwt,
+                "jwt": addon_api_token,
                 "api_url": api_url,
             },
             f,
@@ -251,7 +252,11 @@ def _configure_ha_trusted_proxies() -> None:
     can proxy requests without HA returning 400.
     Restarts HA core via Supervisor API to apply the change.
     """
-    config_path = "/homeassistant/configuration.yaml"
+    # HA Supervisor mounts config:rw at /config in the add-on container;
+    # try /homeassistant as fallback for non-standard setups
+    config_path = "/config/configuration.yaml"
+    if not os.path.exists(config_path):
+        config_path = "/homeassistant/configuration.yaml"
     try:
         with open(config_path) as f:
             content = f.read()
