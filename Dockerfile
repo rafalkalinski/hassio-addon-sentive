@@ -1,6 +1,8 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
+ENV TZ=Europe/Warsaw
+
 # Install Python and dependencies
 RUN apk add --no-cache \
     python3 \
@@ -9,7 +11,8 @@ RUN apk add --no-cache \
     py3-bcrypt \
     py3-pillow \
     curl \
-    ca-certificates
+    ca-certificates \
+    tzdata
 
 # Install cloudflared based on architecture
 ARG BUILD_ARCH
