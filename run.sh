@@ -44,18 +44,6 @@ fi
 bashio::log.info "Ensuring HA trusted_proxies configuration..."
 python3 -c "import sys; sys.path.insert(0, '/'); from register import _configure_ha_trusted_proxies; _configure_ha_trusted_proxies()" 2>&1 || true
 
-# Push fresh HA token to OPS on every startup — keeps monitoring healthy after HA restarts
-bashio::log.info "Refreshing HA token in OPS..."
-python3 -c "import sys; sys.path.insert(0, '/'); from register import _push_ha_token_to_ops; _push_ha_token_to_ops()" 2>&1 || true
-
-# Background loop: refresh HA access token every 20 min (tokens expire in 30 min)
-(
-    while true; do
-        sleep 1200
-        python3 -c "import sys; sys.path.insert(0, '/'); from register import _push_ha_token_to_ops; _push_ha_token_to_ops()" 2>&1 || true
-    done
-) &
-
 # Start cloudflared tunnel
 TUNNEL_TOKEN=$(cat "$DATA_DIR/cloudflared-token")
 exec cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"

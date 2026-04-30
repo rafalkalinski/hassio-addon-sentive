@@ -269,35 +269,6 @@ def create_long_lived_token() -> str:
     return asyncio.run(_run())
 
 
-def _exchange_refresh_token() -> str:
-    """Exchange the stored refresh_token for a new access_token."""
-    with open(_SENTIVE_REFRESH_TOKEN_FILE) as f:
-        refresh_token = f.read().strip()
-    if not refresh_token:
-        raise ValueError("Empty refresh token file")
-
-    resp = httpx.post(
-        "http://homeassistant:8123/auth/token",
-        data={
-            "client_id": "http://localhost/",
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        },
-        timeout=15,
-    )
-    dbg(f"Refresh exchange: HTTP {resp.status_code}")
-    resp.raise_for_status()
-    data = resp.json()
-
-    new_refresh = data.get("refresh_token")
-    if new_refresh and new_refresh != refresh_token:
-        with open(_SENTIVE_REFRESH_TOKEN_FILE, "w") as f:
-            f.write(new_refresh)
-        dbg("Refresh token rotated")
-
-    return data["access_token"]
-
-
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     """Perform the full bootstrap registration flow."""
 
@@ -369,8 +340,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "web_hostname": web_hostname,
                 "app_hostname": app_hostname,
                 "jwt": addon_api_token,
-                "api_url": api_url,
-                "bootstrap_url": bootstrap_url,
             },
             f,
         )
@@ -418,67 +387,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
     print("Bootstrap registration complete.", file=sys.stderr)
     _configure_ha_trusted_proxies()
-
-
-def _push_ha_token_to_ops() -> None:
-    """
-    Push a HA access token to OPS for monitoring.
-
-    If a stored refresh_token exists (legacy user-flow fallback), exchanges it for
-    a new access_token. Otherwise calls create_long_lived_token() which will create
-    a LLAT via Supervisor WS (preferred) or run the full user-creation + login flow.
-    Called on startup and every 20 min by run.sh; re-sending a LLAT is harmless and
-    ensures OPS always has a valid token after container restarts.
-    """
-    access_token = None
-
-    if os.path.exists(_SENTIVE_REFRESH_TOKEN_FILE):
-        try:
-            access_token = _exchange_refresh_token()
-            dbg("Access token refreshed OK")
-        except Exception as exc:
-            dbg(f"Refresh token exchange failed ({exc}) — recreating credentials")
-            try:
-                os.unlink(_SENTIVE_REFRESH_TOKEN_FILE)
-            except Exception:
-                pass
-            access_token = None
-
-    if not access_token:
-        try:
-            access_token = create_long_lived_token()
-            dbg("New HA credentials created and access token obtained")
-        except Exception as exc:
-            print(f"WARNING: Failed to obtain HA access token: {exc}", file=sys.stderr)
-            return
-
-    info_path = f"{DATA_DIR}/sentive-info.json"
-    try:
-        with open(info_path) as f:
-            info = json.load(f)
-    except Exception as exc:
-        dbg(f"Could not read sentive-info.json: {exc}")
-        return
-
-    client_id = info.get("client_id")
-    bootstrap_url = (info.get("bootstrap_url") or info.get("api_url", "")).rstrip("/")
-    addon_jwt = info.get("jwt")
-
-    if not all([client_id, bootstrap_url, addon_jwt]):
-        dbg("Missing client_id/bootstrap_url/jwt in sentive-info.json — skipping token push")
-        return
-
-    try:
-        resp = httpx.put(
-            f"{bootstrap_url}/addon/clients/{client_id}/ha-token",
-            json={"ha_long_lived_token": access_token},
-            headers={"Authorization": f"Bearer {addon_jwt}"},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        dbg("HA token pushed to OPS OK — monitoring enabled")
-    except Exception as exc:
-        print(f"WARNING: Failed to push HA token to OPS: {exc}", file=sys.stderr)
 
 
 def _configure_ha_trusted_proxies() -> None:
