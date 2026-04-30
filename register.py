@@ -330,6 +330,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "app_hostname": app_hostname,
                 "jwt": addon_api_token,
                 "api_url": api_url,
+                "bootstrap_url": bootstrap_url,
             },
             f,
         )
@@ -418,16 +419,16 @@ def _push_ha_token_to_ops() -> None:
         return
 
     client_id = info.get("client_id")
-    api_url = info.get("api_url", "").rstrip("/")
+    bootstrap_url = (info.get("bootstrap_url") or info.get("api_url", "")).rstrip("/")
     addon_jwt = info.get("jwt")
 
-    if not all([client_id, api_url, addon_jwt]):
-        dbg("Missing client_id/api_url/jwt in sentive-info.json — skipping token push")
+    if not all([client_id, bootstrap_url, addon_jwt]):
+        dbg("Missing client_id/bootstrap_url/jwt in sentive-info.json — skipping token push")
         return
 
     try:
         resp = httpx.put(
-            f"{api_url}/addon/clients/{client_id}/ha-token",
+            f"{bootstrap_url}/addon/clients/{client_id}/ha-token",
             json={"ha_long_lived_token": access_token},
             headers={"Authorization": f"Bearer {addon_jwt}"},
             timeout=15,
