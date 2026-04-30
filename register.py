@@ -158,8 +158,18 @@ async def _setup_ha_user(password: str) -> None:
         user_id = res["result"]["user"]["id"]
         dbg(f"Created HA user id={user_id}")
 
+        # Delete any stale credentials for this username before creating new ones.
+        # They may belong to an old deleted user (e.g. after a registration reset).
         await ws.send(_json.dumps({
             "id": 4,
+            "type": "config/auth_provider/homeassistant/delete",
+            "username": _SENTIVE_HA_USERNAME,
+        }))
+        del_stale = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        dbg(f"Delete stale creds: success={del_stale.get('success')}")
+
+        await ws.send(_json.dumps({
+            "id": 5,
             "type": "config/auth_provider/homeassistant/create",
             "user_id": user_id,
             "username": _SENTIVE_HA_USERNAME,
