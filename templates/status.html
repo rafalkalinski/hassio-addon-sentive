@@ -85,6 +85,14 @@
       color: #16a34a;
       font-weight: 500;
     }
+    .status-warn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      color: #dc2626;
+      font-weight: 500;
+    }
     .danger-card {
       background: #fff;
       border-radius: 12px;
@@ -143,7 +151,11 @@
       <div class="card-title">Connection</div>
       <div class="field-row">
         <div class="field-label">Status</div>
+        {% if info.get('client_id') %}
         <div class="status-ok">&#10003; Registered &amp; connected</div>
+        {% else %}
+        <div class="status-warn">&#10007; Not registered</div>
+        {% endif %}
       </div>
       <div class="field-row">
         <div class="field-label">Client ID</div>
@@ -172,6 +184,7 @@
       </div>
     </div>
 
+    {% if info.get('client_id') %}
     <div class="danger-card">
       <div class="danger-title">Danger Zone</div>
       <p class="danger-desc">Clear all registration data. You will need a new invite code and must restart the add-on.</p>
@@ -179,6 +192,7 @@
         <button type="submit" class="btn-danger">Reset Registration</button>
       </form>
     </div>
+    {% endif %}
 
     <div class="version-footer">Sentive OPS Add-on v{{ version }}</div>
   </div>

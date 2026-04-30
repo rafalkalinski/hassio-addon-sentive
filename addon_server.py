@@ -224,6 +224,8 @@ def reset_registration():
         DATA_DIR / "cloudflared-token",
         DATA_DIR / "sentive-info.json",
         DATA_DIR / "registration-error.txt",
+        DATA_DIR / "ha-sentive-creds.json",
+        DATA_DIR / "ha-sentive-refresh.txt",
     ]:
         f.unlink(missing_ok=True)
     return render_template("reset_done.html")
