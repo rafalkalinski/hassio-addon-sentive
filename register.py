@@ -69,34 +69,6 @@ def get_supervisor_config() -> dict:
         return {}
 
 
-async def _create_llat_via_supervisor_ws() -> str:
-    """Create a Sentive OPS LLAT via Supervisor WS proxy (authenticated as owner)."""
-    import asyncio
-    import json as _json
-
-    import websockets
-
-    async with websockets.connect(
-        "ws://supervisor/core/api/websocket", open_timeout=10
-    ) as ws:
-        msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
-        if msg.get("type") == "auth_required":
-            await ws.send(_json.dumps({"type": "auth", "access_token": SUPERVISOR_TOKEN}))
-            res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-            if res.get("type") != "auth_ok":
-                raise ValueError(f"Supervisor WS auth failed: {res}")
-        await ws.send(_json.dumps({
-            "id": 1,
-            "type": "auth/long_lived_access_token",
-            "client_name": "Sentive OPS",
-            "lifespan": 3650,
-        }))
-        res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-        if not res.get("success"):
-            raise ValueError(f"LLAT creation via Supervisor WS failed: {res}")
-        return res["result"]
-
-
 async def _setup_ha_user(password: str) -> None:
     """Create or reset the sentive-ops HA user via Supervisor WS proxy."""
     import asyncio
@@ -151,6 +123,7 @@ async def _setup_ha_user(password: str) -> None:
             "type": "config/auth/create",
             "name": "Sentive OPS",
             "group_ids": ["system-admin"],
+            "local_only": True,
         }))
         res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
         if not res.get("success"):
@@ -246,37 +219,49 @@ def _login_and_get_tokens(password: str) -> str:
     return access_token
 
 
+async def _create_llat_with_token(access_token: str) -> str:
+    """Create a LLAT for sentive-ops by connecting to HA WS as that user."""
+    import asyncio
+    import json as _json
+
+    import websockets
+
+    async with websockets.connect(
+        "ws://homeassistant:8123/api/websocket", open_timeout=10
+    ) as ws:
+        msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+        if msg.get("type") == "auth_required":
+            await ws.send(_json.dumps({"type": "auth", "access_token": access_token}))
+            res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            if res.get("type") != "auth_ok":
+                raise ValueError(f"sentive-ops WS auth failed: {res}")
+            dbg("sentive-ops WS: auth_ok")
+        await ws.send(_json.dumps({
+            "id": 1,
+            "type": "auth/long_lived_access_token",
+            "client_name": "Sentive OPS",
+            "lifespan": 3650,
+        }))
+        res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        if not res.get("success"):
+            raise ValueError(f"LLAT creation failed: {res}")
+        dbg("LLAT created for sentive-ops OK")
+        return res["result"]
+
+
 async def _create_token_via_user_flow() -> str:
-    """Fallback: create/reset sentive-ops user and log in to get refresh+access token."""
+    """Create sentive-ops user, log in, then create a real LLAT for that user."""
     import secrets
     password = secrets.token_urlsafe(32)
     await _setup_ha_user(password)
-    return _login_and_get_tokens(password)
+    access_token = _login_and_get_tokens(password)
+    return await _create_llat_with_token(access_token)
 
 
 def create_long_lived_token() -> str:
-    """
-    Obtain a HA token for OPS monitoring.
-
-    Primary: create a Long-Lived Access Token (10 years) via Supervisor WS proxy,
-    which authenticates as the owner account. Returns the LLAT directly.
-
-    Fallback: create/reset the sentive-ops HA user and log in via the HTTP auth flow,
-    storing the refresh_token for future use by _exchange_refresh_token.
-    """
+    """Create a Long-Lived Access Token for the sentive-ops service account."""
     import asyncio
-
-    async def _run() -> str:
-        if SUPERVISOR_TOKEN:
-            try:
-                token = await _create_llat_via_supervisor_ws()
-                dbg("LLAT created via Supervisor WS OK")
-                return token
-            except Exception as exc:
-                dbg(f"LLAT via Supervisor WS failed: {exc} — falling back to user flow")
-        return await _create_token_via_user_flow()
-
-    return asyncio.run(_run())
+    return asyncio.run(_create_token_via_user_flow())
 
 
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
