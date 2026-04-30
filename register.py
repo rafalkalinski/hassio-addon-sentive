@@ -69,162 +69,202 @@ def get_supervisor_config() -> dict:
         return {}
 
 
-def create_long_lived_token() -> str:
-    """
-    Obtain a HA access token for OPS monitoring via a 2-phase flow:
-
-    1. Supervisor WS proxy (auth via SUPERVISOR_TOKEN) — create/reset a dedicated
-       non-system HA user '_SENTIVE_HA_USERNAME'.
-    2. HA HTTP auth/login_flow — log in as that user.
-       Stores the refresh_token to _SENTIVE_REFRESH_TOKEN_FILE for future refreshes.
-       Returns the short-lived access_token (valid 30 min).
-
-    Note: auth/long_lived_access_token is restricted to the 'owner' account in
-    HA 2025+, so we use refresh_token rotation instead (see _push_ha_token_to_ops).
-    """
+async def _create_llat_via_supervisor_ws() -> str:
+    """Create a Sentive OPS LLAT via Supervisor WS proxy (authenticated as owner)."""
     import asyncio
     import json as _json
-    import secrets
 
     import websockets
 
-    password = secrets.token_urlsafe(32)
-
-    async def _setup_ha_user() -> None:
-        """Create or reset the sentive-ops HA user via Supervisor WS proxy."""
-        async with websockets.connect(
-            "ws://supervisor/core/api/websocket", open_timeout=10
-        ) as ws:
-            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
-            if msg.get("type") == "auth_required":
-                await ws.send(_json.dumps({"type": "auth", "access_token": SUPERVISOR_TOKEN}))
-                res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-                if res.get("type") != "auth_ok":
-                    raise ValueError(f"Supervisor WS auth failed: {res}")
-                dbg("Supervisor WS: auth_ok")
-
-            user_id = None
-            if os.path.exists(_SENTIVE_HA_CREDS_FILE):
-                try:
-                    stored = _json.load(open(_SENTIVE_HA_CREDS_FILE))
-                    user_id = stored.get("user_id")
-                except Exception:
-                    pass
-
-            if user_id:
-                await ws.send(_json.dumps({
-                    "id": 1,
-                    "type": "config/auth_provider/homeassistant/delete",
-                    "username": _SENTIVE_HA_USERNAME,
-                }))
-                del_res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-                dbg(f"Delete old creds: success={del_res.get('success')}")
-
-                await ws.send(_json.dumps({
-                    "id": 2,
-                    "type": "config/auth_provider/homeassistant/create",
-                    "user_id": user_id,
-                    "username": _SENTIVE_HA_USERNAME,
-                    "password": password,
-                }))
-                res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-                if res.get("success"):
-                    dbg("Reset credentials for existing Sentive HA user OK")
-                    return
-                dbg(f"Reset creds failed: {res} — creating new user")
-                user_id = None
-
-            await ws.send(_json.dumps({
-                "id": 3,
-                "type": "config/auth/create",
-                "name": "Sentive OPS",
-                "group_ids": ["system-admin"],
-            }))
+    async with websockets.connect(
+        "ws://supervisor/core/api/websocket", open_timeout=10
+    ) as ws:
+        msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+        if msg.get("type") == "auth_required":
+            await ws.send(_json.dumps({"type": "auth", "access_token": SUPERVISOR_TOKEN}))
             res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-            if not res.get("success"):
-                raise ValueError(f"Failed to create HA user: {res}")
-            user_id = res["result"]["user"]["id"]
-            dbg(f"Created HA user id={user_id}")
+            if res.get("type") != "auth_ok":
+                raise ValueError(f"Supervisor WS auth failed: {res}")
+        await ws.send(_json.dumps({
+            "id": 1,
+            "type": "auth/long_lived_access_token",
+            "client_name": "Sentive OPS",
+            "lifespan": 3650,
+        }))
+        res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        if not res.get("success"):
+            raise ValueError(f"LLAT creation via Supervisor WS failed: {res}")
+        return res["result"]
+
+
+async def _setup_ha_user(password: str) -> None:
+    """Create or reset the sentive-ops HA user via Supervisor WS proxy."""
+    import asyncio
+    import json as _json
+
+    import websockets
+
+    async with websockets.connect(
+        "ws://supervisor/core/api/websocket", open_timeout=10
+    ) as ws:
+        msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+        if msg.get("type") == "auth_required":
+            await ws.send(_json.dumps({"type": "auth", "access_token": SUPERVISOR_TOKEN}))
+            res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            if res.get("type") != "auth_ok":
+                raise ValueError(f"Supervisor WS auth failed: {res}")
+            dbg("Supervisor WS: auth_ok")
+
+        user_id = None
+        if os.path.exists(_SENTIVE_HA_CREDS_FILE):
+            try:
+                stored = _json.load(open(_SENTIVE_HA_CREDS_FILE))
+                user_id = stored.get("user_id")
+            except Exception:
+                pass
+
+        if user_id:
+            await ws.send(_json.dumps({
+                "id": 1,
+                "type": "config/auth_provider/homeassistant/delete",
+                "username": _SENTIVE_HA_USERNAME,
+            }))
+            del_res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            dbg(f"Delete old creds: success={del_res.get('success')}")
 
             await ws.send(_json.dumps({
-                "id": 4,
+                "id": 2,
                 "type": "config/auth_provider/homeassistant/create",
                 "user_id": user_id,
                 "username": _SENTIVE_HA_USERNAME,
                 "password": password,
             }))
             res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-            if not res.get("success"):
-                raise ValueError(f"Failed to create HA credentials: {res}")
+            if res.get("success"):
+                dbg("Reset credentials for existing Sentive HA user OK")
+                return
+            dbg(f"Reset creds failed: {res} — creating new user")
+            user_id = None
 
-            with open(_SENTIVE_HA_CREDS_FILE, "w") as f:
-                _json.dump({"user_id": user_id, "username": _SENTIVE_HA_USERNAME}, f)
-            dbg(f"Sentive OPS HA user created id={user_id}")
+        await ws.send(_json.dumps({
+            "id": 3,
+            "type": "config/auth/create",
+            "name": "Sentive OPS",
+            "group_ids": ["system-admin"],
+        }))
+        res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        if not res.get("success"):
+            raise ValueError(f"Failed to create HA user: {res}")
+        user_id = res["result"]["user"]["id"]
+        dbg(f"Created HA user id={user_id}")
 
-    def _login_and_get_tokens() -> str:
-        """Login as sentive-ops, store refresh_token, return access_token."""
-        client_id = "http://localhost/"
+        await ws.send(_json.dumps({
+            "id": 4,
+            "type": "config/auth_provider/homeassistant/create",
+            "user_id": user_id,
+            "username": _SENTIVE_HA_USERNAME,
+            "password": password,
+        }))
+        res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        if not res.get("success"):
+            raise ValueError(f"Failed to create HA credentials: {res}")
 
-        flow_resp = httpx.post(
-            "http://homeassistant:8123/auth/login_flow",
-            json={
-                "client_id": client_id,
-                "handler": ["homeassistant", None],
-                "redirect_uri": f"{client_id}?auth_callback=1",
-            },
-            timeout=15,
-        )
-        dbg(f"Login flow: HTTP {flow_resp.status_code}")
-        flow_resp.raise_for_status()
-        flow_id = flow_resp.json()["flow_id"]
+        with open(_SENTIVE_HA_CREDS_FILE, "w") as f:
+            _json.dump({"user_id": user_id, "username": _SENTIVE_HA_USERNAME}, f)
+        dbg(f"Sentive OPS HA user created id={user_id}")
 
-        submit_resp = httpx.post(
-            f"http://homeassistant:8123/auth/login_flow/{flow_id}",
-            json={
-                "client_id": client_id,
-                "username": _SENTIVE_HA_USERNAME,
-                "password": password,
-            },
-            timeout=15,
-        )
-        dbg(f"Login submit: HTTP {submit_resp.status_code}")
-        submit_resp.raise_for_status()
-        submit_data = submit_resp.json()
-        if submit_data.get("type") != "create_entry":
-            raise ValueError(f"Login flow failed: {submit_data}")
 
-        raw_result = submit_data["result"]
-        code = raw_result if isinstance(raw_result, str) else raw_result["code"]
-        dbg(f"Auth code obtained (type={type(raw_result).__name__})")
+def _login_and_get_tokens(password: str) -> str:
+    """Login as sentive-ops, store refresh_token, return access_token."""
+    client_id = "http://localhost/"
 
-        token_resp = httpx.post(
-            "http://homeassistant:8123/auth/token",
-            data={
-                "client_id": client_id,
-                "grant_type": "authorization_code",
-                "code": code,
-            },
-            timeout=15,
-        )
-        dbg(f"Token exchange: HTTP {token_resp.status_code}")
-        token_resp.raise_for_status()
-        token_data = token_resp.json()
-        access_token = token_data["access_token"]
+    flow_resp = httpx.post(
+        "http://homeassistant:8123/auth/login_flow",
+        json={
+            "client_id": client_id,
+            "handler": ["homeassistant", None],
+            "redirect_uri": f"{client_id}?auth_callback=1",
+        },
+        timeout=15,
+    )
+    dbg(f"Login flow: HTTP {flow_resp.status_code}")
+    flow_resp.raise_for_status()
+    flow_id = flow_resp.json()["flow_id"]
 
-        refresh_token = token_data.get("refresh_token", "")
-        if refresh_token:
-            with open(_SENTIVE_REFRESH_TOKEN_FILE, "w") as f:
-                f.write(refresh_token)
-            dbg("Refresh token stored")
-        else:
-            dbg("WARNING: no refresh_token in response")
+    submit_resp = httpx.post(
+        f"http://homeassistant:8123/auth/login_flow/{flow_id}",
+        json={
+            "client_id": client_id,
+            "username": _SENTIVE_HA_USERNAME,
+            "password": password,
+        },
+        timeout=15,
+    )
+    dbg(f"Login submit: HTTP {submit_resp.status_code}")
+    submit_resp.raise_for_status()
+    submit_data = submit_resp.json()
+    if submit_data.get("type") != "create_entry":
+        raise ValueError(f"Login flow failed: {submit_data}")
 
-        dbg("Got HA access token via login flow")
-        return access_token
+    raw_result = submit_data["result"]
+    code = raw_result if isinstance(raw_result, str) else raw_result["code"]
+    dbg(f"Auth code obtained (type={type(raw_result).__name__})")
+
+    token_resp = httpx.post(
+        "http://homeassistant:8123/auth/token",
+        data={
+            "client_id": client_id,
+            "grant_type": "authorization_code",
+            "code": code,
+        },
+        timeout=15,
+    )
+    dbg(f"Token exchange: HTTP {token_resp.status_code}")
+    token_resp.raise_for_status()
+    token_data = token_resp.json()
+    access_token = token_data["access_token"]
+
+    refresh_token = token_data.get("refresh_token", "")
+    if refresh_token:
+        with open(_SENTIVE_REFRESH_TOKEN_FILE, "w") as f:
+            f.write(refresh_token)
+        dbg("Refresh token stored")
+    else:
+        dbg("WARNING: no refresh_token in response")
+
+    dbg("Got HA access token via login flow")
+    return access_token
+
+
+async def _create_token_via_user_flow() -> str:
+    """Fallback: create/reset sentive-ops user and log in to get refresh+access token."""
+    import secrets
+    password = secrets.token_urlsafe(32)
+    await _setup_ha_user(password)
+    return _login_and_get_tokens(password)
+
+
+def create_long_lived_token() -> str:
+    """
+    Obtain a HA token for OPS monitoring.
+
+    Primary: create a Long-Lived Access Token (10 years) via Supervisor WS proxy,
+    which authenticates as the owner account. Returns the LLAT directly.
+
+    Fallback: create/reset the sentive-ops HA user and log in via the HTTP auth flow,
+    storing the refresh_token for future use by _exchange_refresh_token.
+    """
+    import asyncio
 
     async def _run() -> str:
-        await _setup_ha_user()
-        return _login_and_get_tokens()
+        if SUPERVISOR_TOKEN:
+            try:
+                token = await _create_llat_via_supervisor_ws()
+                dbg("LLAT created via Supervisor WS OK")
+                return token
+            except Exception as exc:
+                dbg(f"LLAT via Supervisor WS failed: {exc} — falling back to user flow")
+        return await _create_token_via_user_flow()
 
     return asyncio.run(_run())
 
@@ -382,11 +422,13 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
 def _push_ha_token_to_ops() -> None:
     """
-    Push a fresh HA access token to OPS for monitoring.
+    Push a HA access token to OPS for monitoring.
 
-    Uses the stored refresh_token to get a new access_token (30-min valid).
-    If no refresh_token exists, runs the full user-creation + login flow.
-    Called on startup and every 20 min by run.sh to keep the token alive.
+    If a stored refresh_token exists (legacy user-flow fallback), exchanges it for
+    a new access_token. Otherwise calls create_long_lived_token() which will create
+    a LLAT via Supervisor WS (preferred) or run the full user-creation + login flow.
+    Called on startup and every 20 min by run.sh; re-sending a LLAT is harmless and
+    ensures OPS always has a valid token after container restarts.
     """
     access_token = None
 
