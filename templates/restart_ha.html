@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentive OPS — Restarting HA</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f3f4f6;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 1.5rem 1rem;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    .page-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 1.25rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      padding: 1.25rem;
+    }
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.75rem;
+    }
+    .ok { color: #16a34a; }
+    .err { color: #dc2626; }
+    .message {
+      font-size: 0.85rem;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+    .back-link {
+      font-size: 0.82rem;
+      color: #6b7280;
+      text-decoration: none;
+    }
+    .back-link:hover { color: #374151; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-title">Sentive OPS</div>
+    <div class="card">
+      {% if restarted %}
+      <div class="card-title ok">Restart triggered</div>
+      <p class="message">
+        Home Assistant core is restarting. The panel may be briefly unavailable.
+        Once HA is back up, the tunnel should be fully operational.
+      </p>
+      {% else %}
+      <div class="card-title err">Restart failed</div>
+      <p class="message">
+        Could not trigger a Home Assistant restart automatically.
+        Please restart HA manually from Settings → System → Restart.
+      </p>
+      {% endif %}
+      <a href="{{ url_for('status') }}" class="back-link">← Back to status</a>
+    </div>
+  </div>
+</body>
+</html>

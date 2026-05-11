@@ -474,20 +474,15 @@ def _configure_ha_trusted_proxies() -> None:
             dbg(f"Could not write HA config: {exc}")
             return
 
-    if not SUPERVISOR_TOKEN:
-        print("WARNING: Cannot restart HA automatically — no SUPERVISOR_TOKEN.", file=sys.stderr)
-        return
-
-    dbg("Restarting HA core to apply trusted_proxies...")
+    # Signal to the UI that a HA restart is needed to apply the config change.
     try:
-        resp = httpx.post(
-            "http://supervisor/core/restart",
-            headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"},
-            timeout=60,
-        )
-        dbg(f"HA restart triggered: {resp.status_code}")
+        open(f"{DATA_DIR}/ha-restart-needed", "w").close()
     except Exception as exc:
-        dbg(f"HA restart failed — please restart HA manually: {exc}")
+        dbg(f"Could not write ha-restart-needed flag: {exc}")
+    print(
+        "configuration.yaml updated — please restart Home Assistant to apply trusted_proxies.",
+        file=sys.stderr,
+    )
 
 
 def main() -> None:

@@ -31,6 +31,7 @@ _SENTIVE_HA_USERNAME = "sentive-ops"
 
 DATA_DIR = Path("/data")
 PIN_FILE = DATA_DIR / "pin.json"
+HA_RESTART_NEEDED_FILE = DATA_DIR / "ha-restart-needed"
 
 def _read_addon_version() -> str:
     try:
@@ -330,7 +331,21 @@ def pin():
 @_require_session
 def status():
     info = _load_info()
-    return render_template("status.html", info=info, version=ADDON_VERSION)
+    return render_template(
+        "status.html",
+        info=info,
+        version=ADDON_VERSION,
+        ha_restart_needed=HA_RESTART_NEEDED_FILE.exists(),
+    )
+
+
+@app.route("/restart-ha", methods=["POST"])
+@_require_session
+def restart_ha():
+    restarted = _restart_ha_core()
+    if restarted:
+        HA_RESTART_NEEDED_FILE.unlink(missing_ok=True)
+    return render_template("restart_ha.html", restarted=restarted)
 
 
 @app.route("/reset-registration", methods=["POST"])
@@ -347,6 +362,7 @@ def reset_registration():
         DATA_DIR / "registration-error.txt",
         DATA_DIR / "ha-sentive-creds.json",
         DATA_DIR / "ha-sentive-refresh.txt",
+        HA_RESTART_NEEDED_FILE,
     ]:
         f.unlink(missing_ok=True)
 

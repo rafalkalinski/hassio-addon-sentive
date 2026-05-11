@@ -128,6 +128,43 @@
       transition: all 0.15s;
     }
     .btn-danger:hover { background: #fef2f2; border-color: #dc2626; }
+    .restart-banner {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.875rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .restart-banner-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.05rem; }
+    .restart-banner-body { flex: 1; }
+    .restart-banner-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #92400e;
+      margin-bottom: 0.25rem;
+    }
+    .restart-banner-desc {
+      font-size: 0.78rem;
+      color: #78350f;
+      line-height: 1.5;
+      margin-bottom: 0.625rem;
+    }
+    .btn-restart {
+      padding: 0.4rem 0.875rem;
+      background: #f59e0b;
+      border: none;
+      border-radius: 7px;
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-restart:hover { background: #d97706; }
     .version-footer {
       text-align: center;
       font-size: 0.7rem;
@@ -146,6 +183,23 @@
       <span class="page-title-dot"></span>
       Sentive OPS
     </div>
+
+    {% if ha_restart_needed %}
+    <div class="restart-banner">
+      <div class="restart-banner-icon">⚠️</div>
+      <div class="restart-banner-body">
+        <div class="restart-banner-title">Home Assistant restart required</div>
+        <div class="restart-banner-desc">
+          Sentive OPS added a <code>trusted_proxies</code> entry to your
+          <code>configuration.yaml</code>. Restart Home Assistant to apply it —
+          without this, the cloudflared tunnel cannot proxy requests to HA.
+        </div>
+        <form method="post" action="{{ url_for('restart_ha') }}" onsubmit="return confirm('Restart Home Assistant now?')">
+          <button type="submit" class="btn-restart">Restart Home Assistant</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
     <div class="card">
       <div class="card-title">Connection</div>
