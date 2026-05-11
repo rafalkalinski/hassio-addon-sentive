@@ -44,22 +44,6 @@ fi
 bashio::log.info "Ensuring HA trusted_proxies configuration..."
 python3 -c "import sys; sys.path.insert(0, '/'); from register import _configure_ha_trusted_proxies; _configure_ha_trusted_proxies()" 2>&1 || true
 
-# Refresh HA token in OPS on every startup (self-healing)
-bashio::log.info "Refreshing HA token in OPS..."
-INFO_FILE="$DATA_DIR/sentive-info.json"
-if [ -f "$INFO_FILE" ]; then
-    CLIENT_ID=$(python3 -c "import json; d=json.load(open('$INFO_FILE')); print(d.get('client_id',''))" 2>/dev/null || true)
-    ADDON_JWT=$(python3 -c "import json; d=json.load(open('$INFO_FILE')); print(d.get('jwt',''))" 2>/dev/null || true)
-    if [ -n "$CLIENT_ID" ] && [ -n "$ADDON_JWT" ]; then
-        python3 -c "
-import sys
-sys.path.insert(0, '/')
-from register import refresh_ha_token
-refresh_ha_token('$CLIENT_ID', '$ADDON_JWT', '$API_URL')
-" 2>&1 || true
-    fi
-fi
-
 # Start cloudflared tunnel
 TUNNEL_TOKEN=$(cat "$DATA_DIR/cloudflared-token")
 exec cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"

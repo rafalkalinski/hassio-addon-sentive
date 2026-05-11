@@ -283,38 +283,6 @@ def create_long_lived_token() -> str:
     return asyncio.run(_create_token_via_user_flow())
 
 
-def refresh_ha_token(client_id: str, addon_api_token: str, api_url: str) -> None:
-    """
-    Create a fresh HA long-lived token and push it to OPS.
-    Called on every add-on startup after successful registration.
-    """
-    import asyncio
-    print("Refreshing HA token in OPS...", file=sys.stderr)
-    try:
-        ha_long_lived_token = asyncio.run(_create_token_via_user_flow())
-        dbg("Long-lived token created OK")
-    except Exception as exc:
-        dbg(f"Long-lived token creation failed: {exc}")
-        print(f"WARNING: Failed to refresh HA token: {exc}", file=sys.stderr)
-        return
-
-    refresh_url = f"{api_url}/addon/clients/{client_id}/ha-token"
-    dbg(f"PUT {refresh_url}")
-    try:
-        resp = httpx.put(
-            refresh_url,
-            json={"ha_long_lived_token": ha_long_lived_token},
-            headers={"Authorization": f"Bearer {addon_api_token}"},
-            timeout=30,
-        )
-        dbg(f"/ha-token response: HTTP {resp.status_code}")
-        resp.raise_for_status()
-        dbg("Token refresh OK")
-        print("HA token refreshed successfully.", file=sys.stderr)
-    except Exception as exc:
-        print(f"WARNING: Failed to push refreshed token to OPS: {exc}", file=sys.stderr)
-
-
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     """Perform the full bootstrap registration flow."""
 
@@ -373,7 +341,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
     client_id = registration["client_id"]
     tunnel_token = registration["tunnel_token"]
     short_lived_jwt = registration["short_lived_jwt"]
-    addon_api_token = registration.get("addon_api_token", short_lived_jwt)
     web_hostname = registration.get("web_hostname", "")
     app_hostname = registration.get("app_hostname", "")
     dbg(f"Registered client_id={client_id}, web={web_hostname}, app={app_hostname}")
@@ -385,7 +352,6 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
                 "client_id": client_id,
                 "web_hostname": web_hostname,
                 "app_hostname": app_hostname,
-                "jwt": addon_api_token,
             },
             f,
         )
