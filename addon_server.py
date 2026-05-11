@@ -6,6 +6,7 @@ Flask web server on port 8099 providing:
 - Status page (connection info)
 """
 
+import asyncio
 import json
 import os
 import re
@@ -15,6 +16,7 @@ from functools import wraps
 from pathlib import Path
 
 import bcrypt
+import httpx
 from flask import (
     Flask,
     redirect,
@@ -23,6 +25,9 @@ from flask import (
     session,
     url_for,
 )
+
+SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASSIO_TOKEN", "")
+_SENTIVE_HA_USERNAME = "sentive-ops"
 
 DATA_DIR = Path("/data")
 PIN_FILE = DATA_DIR / "pin.json"
@@ -138,6 +143,118 @@ def _require_session(f):
 # ------------------------------------------------------------------
 
 
+# ------------------------------------------------------------------
+# HA cleanup helpers (used by reset_registration)
+# ------------------------------------------------------------------
+
+
+async def _cleanup_ha_user_async() -> dict:
+    """Delete sentive-ops credentials and user via Supervisor WS."""
+    import json as _json
+    import websockets
+
+    result = {"creds_deleted": False, "user_deleted": False, "error": None}
+    if not SUPERVISOR_TOKEN:
+        result["error"] = "No SUPERVISOR_TOKEN"
+        return result
+
+    creds_file = DATA_DIR / "ha-sentive-creds.json"
+    user_id = None
+    if creds_file.exists():
+        try:
+            user_id = _json.loads(creds_file.read_text()).get("user_id")
+        except Exception:
+            pass
+
+    try:
+        async with websockets.connect(
+            "ws://supervisor/core/api/websocket", open_timeout=10
+        ) as ws:
+            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            if msg.get("type") == "auth_required":
+                await ws.send(_json.dumps({"type": "auth", "access_token": SUPERVISOR_TOKEN}))
+                res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                if res.get("type") != "auth_ok":
+                    result["error"] = f"WS auth failed: {res.get('type')}"
+                    return result
+
+            mid = 1
+            await ws.send(_json.dumps({
+                "id": mid,
+                "type": "config/auth_provider/homeassistant/delete",
+                "username": _SENTIVE_HA_USERNAME,
+            }))
+            del_res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            result["creds_deleted"] = bool(del_res.get("success"))
+            mid += 1
+
+            if user_id:
+                await ws.send(_json.dumps({
+                    "id": mid,
+                    "type": "config/auth/delete",
+                    "user_id": user_id,
+                }))
+                del_res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                result["user_deleted"] = bool(del_res.get("success"))
+    except Exception as exc:
+        result["error"] = str(exc)
+
+    return result
+
+
+def _cleanup_ha_user() -> dict:
+    try:
+        return asyncio.run(_cleanup_ha_user_async())
+    except Exception as exc:
+        return {"creds_deleted": False, "user_deleted": False, "error": str(exc)}
+
+
+def _remove_ha_trusted_proxies() -> bool:
+    """Remove 172.30.0.0/16 and the Sentive comment from HA configuration.yaml."""
+    config_path = "/config/configuration.yaml"
+    if not os.path.exists(config_path):
+        config_path = "/homeassistant/configuration.yaml"
+    try:
+        with open(config_path) as f:
+            lines = f.readlines()
+    except Exception:
+        return False
+
+    new_lines = [
+        line for line in lines
+        if not re.match(r"[ \t]+-\s*172\.30\.0\.0/16\s*$", line)
+        and "Sentive OPS — allow cloudflared tunnel to proxy to Home Assistant" not in line
+    ]
+    if new_lines == lines:
+        return False
+    try:
+        with open(config_path, "w") as f:
+            f.writelines(new_lines)
+        return True
+    except Exception:
+        return False
+
+
+def _restart_ha_core() -> bool:
+    """Trigger HA core restart via Supervisor API."""
+    if not SUPERVISOR_TOKEN:
+        return False
+    try:
+        resp = httpx.post(
+            "http://supervisor/core/restart",
+            headers={"Authorization": f"Bearer {SUPERVISOR_TOKEN}"},
+            timeout=30,
+        )
+        return resp.is_success
+    except Exception:
+        return False
+
+
+# ------------------------------------------------------------------
+# Routes
+# ------------------------------------------------------------------
+
+
 REGISTRATION_ERROR_FILE = DATA_DIR / "registration-error.txt"
 REGISTERED_FILE = DATA_DIR / "registered"
 
@@ -219,6 +336,10 @@ def status():
 @app.route("/reset-registration", methods=["POST"])
 @_require_session
 def reset_registration():
+    ha_result = _cleanup_ha_user()
+    config_cleaned = _remove_ha_trusted_proxies()
+    ha_restarted = _restart_ha_core() if config_cleaned else False
+
     for f in [
         DATA_DIR / "registered",
         DATA_DIR / "cloudflared-token",
@@ -228,7 +349,15 @@ def reset_registration():
         DATA_DIR / "ha-sentive-refresh.txt",
     ]:
         f.unlink(missing_ok=True)
-    return render_template("reset_done.html")
+
+    return render_template(
+        "reset_done.html",
+        ha_user_deleted=ha_result.get("user_deleted", False),
+        ha_creds_deleted=ha_result.get("creds_deleted", False),
+        ha_error=ha_result.get("error"),
+        config_cleaned=config_cleaned,
+        ha_restarted=ha_restarted,
+    )
 
 
 if __name__ == "__main__":

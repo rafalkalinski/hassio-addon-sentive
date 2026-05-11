@@ -24,41 +24,120 @@
       border-radius: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.07);
       padding: 1.25rem;
+      margin-bottom: 0.875rem;
     }
     .card-title {
-      font-size: 0.875rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      color: #dc2626;
-      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #9ca3af;
+      margin-bottom: 0.875rem;
     }
-    .message {
-      font-size: 0.875rem;
-      color: #6b7280;
-      line-height: 1.6;
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+    .check-row:last-child { margin-bottom: 0; }
+    .icon-ok { color: #16a34a; font-weight: 600; }
+    .icon-warn { color: #d97706; font-weight: 600; }
+    .icon-err { color: #dc2626; font-weight: 600; }
+    .error-detail {
+      font-size: 0.75rem;
+      color: #dc2626;
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: #fef2f2;
+      border-radius: 6px;
+      font-family: monospace;
+      word-break: break-all;
     }
     .steps {
-      margin-top: 0.875rem;
+      margin-top: 0.5rem;
       padding-left: 1.25rem;
     }
     .steps li {
       margin-bottom: 0.4rem;
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       color: #374151;
+      line-height: 1.5;
+    }
+    .message {
+      font-size: 0.85rem;
+      color: #6b7280;
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="page-title">Sentive OPS</div>
+
     <div class="card">
-      <div class="card-title">Registration cleared</div>
-      <div class="message">
-        All registration data has been removed. To complete re-registration:
-        <ol class="steps">
-          <li>Enter a new invite code in the add-on configuration.</li>
-          <li>Restart the add-on from Home Assistant.</li>
-        </ol>
+      <div class="card-title">Cleanup completed</div>
+
+      <div class="check-row">
+        {% if ha_creds_deleted %}
+          <span class="icon-ok">✓</span> HA credentials (sentive-ops) deleted
+        {% elif ha_error %}
+          <span class="icon-warn">!</span> HA credentials — could not delete
+        {% else %}
+          <span class="icon-warn">!</span> HA credentials — not found (already clean)
+        {% endif %}
       </div>
+
+      <div class="check-row">
+        {% if ha_user_deleted %}
+          <span class="icon-ok">✓</span> HA user account (Sentive OPS) deleted
+        {% elif ha_error %}
+          <span class="icon-warn">!</span> HA user account — could not delete
+        {% else %}
+          <span class="icon-warn">!</span> HA user account — not found (already clean)
+        {% endif %}
+      </div>
+
+      <div class="check-row">
+        {% if config_cleaned %}
+          <span class="icon-ok">✓</span> Removed trusted_proxies entry from configuration.yaml
+        {% else %}
+          <span class="icon-ok">✓</span> configuration.yaml — already clean
+        {% endif %}
+      </div>
+
+      <div class="check-row">
+        {% if ha_restarted %}
+          <span class="icon-ok">✓</span> HA core restart triggered
+        {% elif config_cleaned %}
+          <span class="icon-warn">!</span> HA core restart failed — please restart HA manually
+        {% else %}
+          <span class="icon-ok">✓</span> HA core restart not needed
+        {% endif %}
+      </div>
+
+      <div class="check-row">
+        <span class="icon-ok">✓</span> Local registration data cleared
+      </div>
+
+      {% if ha_error %}
+      <div class="error-detail">{{ ha_error }}</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Next steps</div>
+      <div class="message">To re-register this instance:</div>
+      <ol class="steps">
+        <li>Generate a new invite code in the Sentive OPS dashboard.</li>
+        <li>Enter it in the add-on configuration (Settings → Add-ons → Sentive OPS → Configuration).</li>
+        <li>Restart the add-on from Home Assistant.</li>
+        {% if config_cleaned and not ha_restarted %}
+        <li><strong>Restart Home Assistant</strong> to apply the configuration.yaml change.</li>
+        {% endif %}
+      </ol>
     </div>
   </div>
 </body>
