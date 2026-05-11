@@ -95,62 +95,81 @@ async def _setup_ha_user(password: str) -> None:
             except Exception:
                 pass
 
-        if user_id:
-            await ws.send(_json.dumps({
-                "id": 1,
-                "type": "config/auth_provider/homeassistant/delete",
-                "username": _SENTIVE_HA_USERNAME,
-            }))
-            del_res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-            dbg(f"Delete old creds: success={del_res.get('success')}")
+        mid = 1  # message ID counter
 
+        # Always pre-delete stale credentials before any user operations.
+        # Prevents "username already exists" errors during credential creation.
+        await ws.send(_json.dumps({
+            "id": mid,
+            "type": "config/auth_provider/homeassistant/delete",
+            "username": _SENTIVE_HA_USERNAME,
+        }))
+        pre_del = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        dbg(f"Pre-delete stale creds: success={pre_del.get('success')}")
+        mid += 1
+
+        if user_id:
+            # Try reusing the existing HA user account
             await ws.send(_json.dumps({
-                "id": 2,
+                "id": mid,
                 "type": "config/auth_provider/homeassistant/create",
                 "user_id": user_id,
                 "username": _SENTIVE_HA_USERNAME,
                 "password": password,
             }))
             res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            mid += 1
             if res.get("success"):
                 dbg("Reset credentials for existing Sentive HA user OK")
                 return
             dbg(f"Reset creds failed: {res} — creating new user")
             user_id = None
 
+        # Create a new HA user
         await ws.send(_json.dumps({
-            "id": 3,
+            "id": mid,
             "type": "config/auth/create",
             "name": "Sentive OPS",
             "group_ids": ["system-admin"],
             "local_only": True,
         }))
         res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        mid += 1
         if not res.get("success"):
             raise ValueError(f"Failed to create HA user: {res}")
         user_id = res["result"]["user"]["id"]
         dbg(f"Created HA user id={user_id}")
 
-        # Delete any stale credentials for this username before creating new ones.
-        # They may belong to an old deleted user (e.g. after a registration reset).
+        # Create credentials (stale creds already deleted above)
         await ws.send(_json.dumps({
-            "id": 4,
-            "type": "config/auth_provider/homeassistant/delete",
-            "username": _SENTIVE_HA_USERNAME,
-        }))
-        del_stale = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
-        dbg(f"Delete stale creds: success={del_stale.get('success')}")
-
-        await ws.send(_json.dumps({
-            "id": 5,
+            "id": mid,
             "type": "config/auth_provider/homeassistant/create",
             "user_id": user_id,
             "username": _SENTIVE_HA_USERNAME,
             "password": password,
         }))
         res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+        mid += 1
         if not res.get("success"):
-            raise ValueError(f"Failed to create HA credentials: {res}")
+            # Retry: delete once more and try again
+            dbg(f"Create creds failed: {res} — retrying with explicit delete")
+            await ws.send(_json.dumps({
+                "id": mid,
+                "type": "config/auth_provider/homeassistant/delete",
+                "username": _SENTIVE_HA_USERNAME,
+            }))
+            await asyncio.wait_for(ws.recv(), timeout=10)
+            mid += 1
+            await ws.send(_json.dumps({
+                "id": mid,
+                "type": "config/auth_provider/homeassistant/create",
+                "user_id": user_id,
+                "username": _SENTIVE_HA_USERNAME,
+                "password": password,
+            }))
+            res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            if not res.get("success"):
+                raise ValueError(f"Failed to create HA credentials: {res}")
 
         with open(_SENTIVE_HA_CREDS_FILE, "w") as f:
             _json.dump({"user_id": user_id, "username": _SENTIVE_HA_USERNAME}, f)
@@ -262,6 +281,38 @@ def create_long_lived_token() -> str:
     """Create a Long-Lived Access Token for the sentive-ops service account."""
     import asyncio
     return asyncio.run(_create_token_via_user_flow())
+
+
+def refresh_ha_token(client_id: str, addon_api_token: str, api_url: str) -> None:
+    """
+    Create a fresh HA long-lived token and push it to OPS.
+    Called on every add-on startup after successful registration.
+    """
+    import asyncio
+    print("Refreshing HA token in OPS...", file=sys.stderr)
+    try:
+        ha_long_lived_token = asyncio.run(_create_token_via_user_flow())
+        dbg("Long-lived token created OK")
+    except Exception as exc:
+        dbg(f"Long-lived token creation failed: {exc}")
+        print(f"WARNING: Failed to refresh HA token: {exc}", file=sys.stderr)
+        return
+
+    refresh_url = f"{api_url}/addon/clients/{client_id}/ha-token"
+    dbg(f"PUT {refresh_url}")
+    try:
+        resp = httpx.put(
+            refresh_url,
+            json={"ha_long_lived_token": ha_long_lived_token},
+            headers={"Authorization": f"Bearer {addon_api_token}"},
+            timeout=30,
+        )
+        dbg(f"/ha-token response: HTTP {resp.status_code}")
+        resp.raise_for_status()
+        dbg("Token refresh OK")
+        print("HA token refreshed successfully.", file=sys.stderr)
+    except Exception as exc:
+        print(f"WARNING: Failed to push refreshed token to OPS: {exc}", file=sys.stderr)
 
 
 def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
