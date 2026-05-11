@@ -359,13 +359,8 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
     # Create a real long-lived access token to send to OPS server
     print("Creating long-lived access token...", file=sys.stderr)
-    try:
-        ha_long_lived_token = create_long_lived_token()
-        dbg("Long-lived token created OK")
-    except Exception as exc:
-        dbg(f"Long-lived token creation failed: {exc}")
-        print(f"WARNING: Failed to create long-lived token: {exc}. Proceeding without it.", file=sys.stderr)
-        ha_long_lived_token = ""
+    ha_long_lived_token = create_long_lived_token()
+    dbg("Long-lived token created OK")
 
     # POST /complete with real long-lived token
     complete_url = f"{bootstrap_url}/bootstrap/complete"
