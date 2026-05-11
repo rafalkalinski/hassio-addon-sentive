@@ -342,10 +342,18 @@ def status():
 @app.route("/restart-ha", methods=["POST"])
 @_require_session
 def restart_ha():
+    # Clear the flag before triggering restart — the process may be killed
+    # mid-request when Supervisor restarts HA core and takes the addon down.
+    HA_RESTART_NEEDED_FILE.unlink(missing_ok=True)
     restarted = _restart_ha_core()
-    if restarted:
-        HA_RESTART_NEEDED_FILE.unlink(missing_ok=True)
     return render_template("restart_ha.html", restarted=restarted)
+
+
+@app.route("/dismiss-restart", methods=["POST"])
+@_require_session
+def dismiss_restart():
+    HA_RESTART_NEEDED_FILE.unlink(missing_ok=True)
+    return redirect(url_for("status"))
 
 
 @app.route("/reset-registration", methods=["POST"])

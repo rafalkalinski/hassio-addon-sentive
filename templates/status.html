@@ -165,6 +165,19 @@
       transition: background 0.15s;
     }
     .btn-restart:hover { background: #d97706; }
+    .btn-dismiss {
+      padding: 0.4rem 0.875rem;
+      background: transparent;
+      border: 1px solid #fcd34d;
+      border-radius: 7px;
+      color: #92400e;
+      font-size: 0.78rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-dismiss:hover { background: #fef3c7; }
     .version-footer {
       text-align: center;
       font-size: 0.7rem;
@@ -194,9 +207,14 @@
           <code>configuration.yaml</code>. Restart Home Assistant to apply it —
           without this, the cloudflared tunnel cannot proxy requests to HA.
         </div>
-        <form method="post" action="{{ url_for('restart_ha') }}" onsubmit="return confirm('Restart Home Assistant now?')">
-          <button type="submit" class="btn-restart">Restart Home Assistant</button>
-        </form>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <form method="post" action="{{ url_for('restart_ha') }}" onsubmit="return confirm('Restart Home Assistant now?')">
+            <button type="submit" class="btn-restart">Restart Home Assistant</button>
+          </form>
+          <form method="post" action="{{ url_for('dismiss_restart') }}">
+            <button type="submit" class="btn-dismiss">Already restarted</button>
+          </form>
+        </div>
       </div>
     </div>
     {% endif %}
