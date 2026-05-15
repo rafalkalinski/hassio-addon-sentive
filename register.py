@@ -394,6 +394,7 @@ def register(invite_code: str, bootstrap_url: str, api_url: str) -> None:
 
     print("Bootstrap registration complete.", file=sys.stderr)
     _configure_ha_trusted_proxies()
+    _configure_ha_external_url(web_hostname)
 
 
 def _configure_ha_trusted_proxies() -> None:
@@ -476,6 +477,69 @@ def _configure_ha_trusted_proxies() -> None:
         dbg(f"Could not write ha-restart-needed flag: {exc}")
     print(
         "configuration.yaml updated — please restart Home Assistant to apply trusted_proxies.",
+        file=sys.stderr,
+    )
+
+
+def _configure_ha_external_url(web_hostname: str) -> None:
+    """
+    Write homeassistant.external_url to HA configuration.yaml so HA validates
+    the client_id correctly when browsers connect through the Sentive tunnel.
+    """
+    if not web_hostname:
+        dbg("web_hostname is empty — skipping external_url configuration")
+        return
+
+    external_url = f"https://{web_hostname}"
+
+    config_path = "/config/configuration.yaml"
+    if not os.path.exists(config_path):
+        config_path = "/homeassistant/configuration.yaml"
+
+    try:
+        with open(config_path) as f:
+            content = f.read()
+    except Exception as exc:
+        dbg(f"Could not read HA config for external_url: {exc}")
+        return
+
+    if f'external_url: "{external_url}"' in content:
+        dbg(f"HA external_url already set to {external_url} — skipping")
+        return
+
+    try:
+        if re.search(r"^homeassistant:", content, re.MULTILINE):
+            # homeassistant: section exists — insert external_url right after it
+            new_content = re.sub(
+                r'(^homeassistant:[ \t]*\n)',
+                r'\g<1>  external_url: "' + external_url + '"\n',
+                content,
+                count=1,
+                flags=re.MULTILINE,
+            )
+            with open(config_path, "w") as f:
+                f.write(new_content)
+            dbg(f"Inserted external_url into existing homeassistant: section")
+        else:
+            # No homeassistant: section — append it
+            with open(config_path, "a") as f:
+                f.write(
+                    f'\n# Sentive OPS — set external_url for correct client_id validation\n'
+                    f'homeassistant:\n'
+                    f'  external_url: "{external_url}"\n'
+                )
+            dbg(f"Appended homeassistant.external_url to configuration.yaml")
+    except Exception as exc:
+        dbg(f"Could not write HA config for external_url: {exc}")
+        return
+
+    # Signal to the UI that a HA restart is needed to apply the config change.
+    try:
+        open(f"{DATA_DIR}/ha-restart-needed", "w").close()
+    except Exception as exc:
+        dbg(f"Could not write ha-restart-needed flag: {exc}")
+    print(
+        f"configuration.yaml updated — please restart Home Assistant to apply external_url.",
         file=sys.stderr,
     )
 

@@ -19,10 +19,20 @@ fi
 # Start ingress UI server immediately — panel stays accessible during registration
 gunicorn --chdir / --bind 0.0.0.0:8099 --workers 2 --timeout 60 addon_server:app &
 
-# Ensure HA trusted_proxies is configured on every startup if already registered (self-healing, idempotent)
+# Ensure HA HTTP configuration is applied on every startup if already registered (self-healing, idempotent)
 if [ -f "$DATA_DIR/registered" ]; then
-    bashio::log.info "Ensuring HA trusted_proxies configuration..."
-    python3 -c "import sys; sys.path.insert(0, '/'); from register import _configure_ha_trusted_proxies; _configure_ha_trusted_proxies()" 2>&1 || true
+    bashio::log.info "Ensuring HA HTTP configuration..."
+    python3 -c "
+import sys, json
+sys.path.insert(0, '/')
+from register import _configure_ha_trusted_proxies, _configure_ha_external_url
+_configure_ha_trusted_proxies()
+try:
+    info = json.load(open('/data/sentive-info.json'))
+    _configure_ha_external_url(info.get('web_hostname', ''))
+except Exception as e:
+    print(f'[DBG] Could not configure external_url: {e}', flush=True)
+" 2>&1 || true
 fi
 
 # Wait for registration (triggered via addon UI)
