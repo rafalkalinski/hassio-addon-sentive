@@ -18,7 +18,7 @@ Witaj w ekosystemie **Sentive OPS** — profesjonalnej platformie zarządzania i
 
 Dodatek **Sentive OPS** wykonuje trzy zadania:
 
-1. **Rejestruje** Twój Home Assistant w systemie Sentive OPS — jednorazowo, przy pierwszym uruchomieniu.
+1. **Rejestruje** Twój Home Assistant w systemie Sentive OPS — jednorazowo, przez panel dodatku (formularz z kodem zaproszenia).
 2. **Utrzymuje bezpieczne połączenie** z platformą Sentive, dzięki czemu nasz zespół może monitorować Twoją instalację bez wchodzenia do sieci domowej.
 3. **Umożliwia wydawanie certyfikatów urządzeń** — jeśli chcesz mieć dostęp do panelu Sentive OPS z telefonu lub komputera, tutaj wygenerujesz potrzebne poświadczenia.
 
@@ -39,22 +39,24 @@ Po skonfigurowaniu w pasku bocznym Home Assistant pojawi się panel **Sentive OP
 4. Odśwież stronę sklepu.
 5. Znajdź **Sentive OPS** na liście i kliknij **Zainstaluj**.
 
-### Krok 3 — Wpisz kod zaproszenia
+### Krok 3 — Uruchom dodatek
 
-6. Przejdź do zakładki **Konfiguracja** dodatku.
-7. W polu `invite_code` wpisz kod, który otrzymałeś od zespołu Sentive.
+6. Przejdź do zakładki **Informacje** i kliknij **Uruchom**.
+
+### Krok 4 — Zarejestruj przez panel
+
+7. W pasku bocznym Home Assistant kliknij **Sentive OPS**.
+8. Wpisz **kod zaproszenia** otrzymany od zespołu Sentive w formularzu i kliknij **Zarejestruj**.
 
 > Kod zaproszenia jest jednorazowy i ważny przez 15 minut. Jeśli wygasł, skontaktuj się z nami.
 
-### Krok 4 — Uruchom dodatek
-
-8. Wróć do zakładki **Informacje** i kliknij **Uruchom**.
-9. Poczekaj chwilę — w logach zobaczysz komunikat o pomyślnej rejestracji.
-
 ### Krok 5 — Ustaw PIN
 
-10. W pasku bocznym Home Assistant kliknij **Sentive OPS**.
-11. Przy pierwszym wejściu zostaniesz poproszony o ustawienie 4-cyfrowego PINu — zabezpiecza on dostęp do panelu.
+9. Po pomyślnej rejestracji zostaniesz poproszony o ustawienie 4-cyfrowego PINu — zabezpiecza on dostęp do panelu.
+
+### Krok 6 — Zrestartuj Home Assistant
+
+10. Rejestracja automatycznie aktualizuje `configuration.yaml` (dodaje `trusted_proxies` i `external_url`). **Zrestartuj Home Assistant**, aby zastosować te zmiany.
 
 Gotowe! Twoja instalacja jest teraz monitorowana przez Sentive OPS.
 
@@ -62,20 +64,15 @@ Gotowe! Twoja instalacja jest teraz monitorowana przez Sentive OPS.
 
 ## Konfiguracja
 
-W konfiguracji dodatku jest tylko jedno pole do uzupełnienia:
-
-| Opcja | Opis |
-|-------|------|
-| `invite_code` | Kod zaproszenia otrzymany od zespołu Sentive — **wymagane** |
-
-Nic więcej nie musisz konfigurować.
+Dodatek nie wymaga żadnej konfiguracji w zakładce **Konfiguracja**. Kod zaproszenia podajesz bezpośrednio w panelu po uruchomieniu.
 
 ---
 
-## Co dzieje się po konfiguracji?
+## Co dzieje się po rejestracji?
 
 - Dodatek automatycznie rejestruje Twój Home Assistant w Sentive OPS.
 - Otwiera bezpieczne, szyfrowane połączenie z naszymi serwerami.
+- W pliku `configuration.yaml` zostają dodane wpisy `trusted_proxies` i `external_url` — wymagane do poprawnego działania tunelu.
 - W pasku bocznym HA pojawia się panel **Sentive OPS**.
 - Zespół Sentive może teraz monitorować Twoją instalację, reagować na awarie i — za Twoją zgodą — wdrażać poprawki.
 

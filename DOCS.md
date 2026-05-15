@@ -4,10 +4,11 @@
 
 Po zainstalowaniu dodatku wykonaj kilka prostych kroków:
 
-1. Wpisz **kod zaproszenia** otrzymany od zespołu Sentive w polu konfiguracji dodatku (`invite_code`).
-2. Uruchom dodatek.
-3. Otwórz panel Sentive OPS (zakładka **Sentive OPS** w bocznym menu Home Assistant).
-4. Przy pierwszym uruchomieniu zostaniesz poproszony o ustawienie **4-cyfrowego PIN-u**. Ten PIN będzie chronił dostęp do panelu.
+1. Uruchom dodatek.
+2. Otwórz panel Sentive OPS (zakładka **Sentive OPS** w bocznym menu Home Assistant).
+3. W formularzu rejestracji wpisz **kod zaproszenia** otrzymany od zespołu Sentive i kliknij **Zarejestruj**.
+4. Po pomyślnej rejestracji ustaw **4-cyfrowy PIN** — będzie chronił dostęp do panelu.
+5. **Zrestartuj Home Assistant** — rejestracja aktualizuje plik `configuration.yaml` (dodaje `trusted_proxies` i `external_url`). Restart jest wymagany, aby zmiany zostały zastosowane.
 
 To wszystko — Twój Home Assistant jest teraz połączony z platformą Sentive OPS.
 
@@ -42,7 +43,7 @@ Jeśli urządzenie nie jest już używane, możesz cofnąć mu dostęp w dowolny
 
 ## PIN
 
-PIN chroni panel Sentive OPS przed niepowołanym dostępem. Ustawiasz go raz — przy pierwszym uruchomieniu.
+PIN chroni panel Sentive OPS przed niepowołanym dostępem. Ustawiasz go raz — po pierwszej rejestracji.
 
 Jeśli zapomnisz PIN-u, skontaktuj się z zespołem Sentive: **kontakt@sentive.it** — zresetujemy go zdalnie.
 
