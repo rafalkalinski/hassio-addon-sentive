@@ -109,6 +109,16 @@ async def _setup_ha_user(password: str) -> None:
         mid += 1
 
         if user_id:
+            # Ensure existing user is not local_only (needed for OPS HTTP API calls via CF tunnel)
+            await ws.send(_json.dumps({
+                "id": mid,
+                "type": "config/auth/update",
+                "user_id": user_id,
+                "local_only": False,
+            }))
+            await asyncio.wait_for(ws.recv(), timeout=10)
+            mid += 1
+
             # Try reusing the existing HA user account
             await ws.send(_json.dumps({
                 "id": mid,
@@ -131,7 +141,7 @@ async def _setup_ha_user(password: str) -> None:
             "type": "config/auth/create",
             "name": "Sentive OPS",
             "group_ids": ["system-admin"],
-            "local_only": True,
+            "local_only": False,
         }))
         res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
         mid += 1

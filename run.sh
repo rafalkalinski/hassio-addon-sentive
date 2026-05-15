@@ -44,6 +44,41 @@ fi
 bashio::log.info "Ensuring HA trusted_proxies configuration..."
 python3 -c "import sys; sys.path.insert(0, '/'); from register import _configure_ha_trusted_proxies; _configure_ha_trusted_proxies()" 2>&1 || true
 
+# Ensure sentive-ops HA user is not local_only (self-healing, idempotent)
+bashio::log.info "Ensuring sentive-ops user is not local_only..."
+python3 -c "
+import asyncio, json, os, sys
+sys.path.insert(0, '/')
+from register import SUPERVISOR_TOKEN, _SENTIVE_HA_CREDS_FILE, _SENTIVE_HA_USERNAME
+
+async def fix_local_only():
+    if not os.path.exists(_SENTIVE_HA_CREDS_FILE):
+        return
+    try:
+        stored = json.load(open(_SENTIVE_HA_CREDS_FILE))
+        user_id = stored.get('user_id')
+    except Exception:
+        return
+    if not user_id:
+        return
+    import websockets, json as _json
+    try:
+        async with websockets.connect('ws://supervisor/core/api/websocket', open_timeout=10) as ws:
+            msg = _json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
+            if msg.get('type') == 'auth_required':
+                await ws.send(_json.dumps({'type': 'auth', 'access_token': SUPERVISOR_TOKEN}))
+                res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                if res.get('type') != 'auth_ok':
+                    return
+            await ws.send(_json.dumps({'id': 1, 'type': 'config/auth/update', 'user_id': user_id, 'local_only': False}))
+            res = _json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+            print(f'local_only fix: success={res.get(\"success\")}', file=sys.stderr)
+    except Exception as e:
+        print(f'local_only fix failed (non-fatal): {e}', file=sys.stderr)
+
+asyncio.run(fix_local_only())
+" 2>&1 || true
+
 # Start cloudflared tunnel
 TUNNEL_TOKEN=$(cat "$DATA_DIR/cloudflared-token")
 exec cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"
