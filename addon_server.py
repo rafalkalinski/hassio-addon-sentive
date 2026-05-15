@@ -259,22 +259,52 @@ def _restart_ha_core() -> bool:
 REGISTRATION_ERROR_FILE = DATA_DIR / "registration-error.txt"
 REGISTERED_FILE = DATA_DIR / "registered"
 
+BOOTSTRAP_URL = "https://bootstrap-dev.sentive.it"
+API_URL = "https://api-dev.sentive.it"
+
 
 @app.route("/")
 def index():
-    if not REGISTERED_FILE.exists() and REGISTRATION_ERROR_FILE.exists():
-        return redirect(url_for("registration_error"))
+    if not REGISTERED_FILE.exists():
+        return redirect(url_for("register"))
     if not _pin_is_set():
         return redirect(url_for("setup_pin"))
     return redirect(url_for("pin"))
 
 
-@app.route("/registration-error")
-def registration_error():
-    error_text = ""
-    if REGISTRATION_ERROR_FILE.exists():
-        error_text = REGISTRATION_ERROR_FILE.read_text()
-    return render_template("registration_error.html", error=error_text)
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if REGISTERED_FILE.exists():
+        return redirect(url_for("status"))
+
+    error = None
+    if request.method == "POST":
+        import subprocess
+        invite_code = request.form.get("invite_code", "").strip()
+        if not invite_code:
+            error = "Podaj kod zaproszenia."
+        else:
+            REGISTRATION_ERROR_FILE.unlink(missing_ok=True)
+            try:
+                result = subprocess.run(
+                    [
+                        "python3", "/register.py",
+                        "--invite-code", invite_code,
+                        "--bootstrap-url", BOOTSTRAP_URL,
+                        "--api-url", API_URL,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=55,
+                )
+                if result.returncode == 0:
+                    session["authenticated"] = True
+                    return redirect(url_for("status"))
+                error = result.stderr or result.stdout or "Rejestracja nie powiodła się."
+            except subprocess.TimeoutExpired:
+                error = "Rejestracja przekroczyła limit czasu. Sprawdź połączenie internetowe i spróbuj ponownie."
+
+    return render_template("register.html", error=error)
 
 
 @app.route("/setup-pin", methods=["GET", "POST"])

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentive OPS — Rejestracja</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f3f4f6;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 2rem 1.75rem;
+      width: 100%;
+      max-width: 460px;
+    }
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    .subtitle {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .form-group { margin-bottom: 1rem; }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #6b7280;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      color: #111827;
+      letter-spacing: 0.05em;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .btn-primary {
+      width: 100%;
+      padding: 0.65rem 1rem;
+      background: #1d4ed8;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 0.5rem;
+    }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+    .error-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.875rem 1rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+    }
+    .error-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .error-title { font-size: 0.85rem; font-weight: 600; color: #dc2626; margin-bottom: 0.25rem; }
+    .error-msg { font-size: 0.78rem; color: #6b7280; white-space: pre-wrap; word-break: break-word; }
+    .hint {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      text-align: center;
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Sentive OPS</div>
+    <div class="subtitle">Wprowadz kod zaproszenia, aby zarejestrowac te instancje.</div>
+
+    {% if error %}
+    <div class="error-banner">
+      <div class="error-icon">&#9888;</div>
+      <div>
+        <div class="error-title">Rejestracja nie powiodla sie</div>
+        <div class="error-msg">{{ error }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="post" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Rejestruje…'">
+      <div class="form-group">
+        <label for="invite_code">Kod zaproszenia</label>
+        <input type="text" id="invite_code" name="invite_code" placeholder="SENTIVE-XXXX-XXXX-XXXX"
+               autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+      </div>
+      <button type="submit" class="btn-primary">Zarejestruj</button>
+    </form>
+
+    <p class="hint">Kod zaproszenia znajdziesz w panelu Sentive OPS Dashboard.</p>
+  </div>
+</body>
+</html>
