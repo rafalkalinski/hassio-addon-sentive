@@ -63,5 +63,3 @@ Jeśli Twój Home Assistant jest offline w Sentive OPS (brak połączenia z plat
 
 - **Aktualizacja:** **Ustawienia** -> **Dodatki** -> **Sentive OPS** -> **Aktualizuj** (przycisk pojawia się, gdy dostępna jest nowsza wersja). Jeśli jeszcze go nie widać: **Sklep z dodatkami** -> menu w prawym górnym rogu -> **Sprawdź aktualizacje**, a następnie wróć na stronę dodatku.
 - **Przebudowa:** **Ustawienia** -> **Dodatki** -> **Sentive OPS** -> menu w prawym górnym rogu -> **Przebuduj** (ponownie buduje obraz dodatku w bieżącej wersji).
-
-Aktualizacja cloudflared wymaga podniesienia `CLOUDFLARED_VERSION` w pliku `Dockerfile` oraz wersji dodatku (`version`) w `config.yaml` — każda zmiana wersji wymusza pełną przebudowę obrazu na każdym Home Assistant.
