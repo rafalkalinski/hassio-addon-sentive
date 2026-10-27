@@ -57,11 +57,11 @@ Opisz krótko, co widzisz na ekranie lub w logach dodatku — postaramy się pom
 
 ---
 
-## Updating / rebuilding the add-on locally
+## Aktualizacja / przebudowa dodatku lokalnie
 
-If the instance is offline in Sentive OPS (no tunnel connection), the add-on can be updated or rebuilt directly from the Home Assistant UI. An HA administrator account is required.
+Jeśli Twój Home Assistant jest offline w Sentive OPS (brak połączenia z platformą), dodatek można zaktualizować lub przebudować bezpośrednio z interfejsu Home Assistant. Wymagane jest konto administratora HA.
 
-- **Update:** Settings -> Add-ons -> Sentive OPS -> **Update** (shown when a newer version is available). If it is not shown yet: Add-on Store -> top-right menu -> **Check for updates**, then return to the add-on page.
-- **Rebuild:** Settings -> Add-ons -> Sentive OPS -> top-right menu -> **Rebuild** (rebuilds the image from the current version).
+- **Aktualizacja:** **Ustawienia** -> **Dodatki** -> **Sentive OPS** -> **Aktualizuj** (przycisk pojawia się, gdy dostępna jest nowsza wersja). Jeśli jeszcze go nie widać: **Sklep z dodatkami** -> menu w prawym górnym rogu -> **Sprawdź aktualizacje**, a następnie wróć na stronę dodatku.
+- **Przebudowa:** **Ustawienia** -> **Dodatki** -> **Sentive OPS** -> menu w prawym górnym rogu -> **Przebuduj** (ponownie buduje obraz dodatku w bieżącej wersji).
 
-Updating cloudflared requires bumping `CLOUDFLARED_VERSION` in `Dockerfile` and the add-on `version` in `config.yaml`; every version bump forces a full image rebuild on each Home Assistant.
+Aktualizacja cloudflared wymaga podniesienia `CLOUDFLARED_VERSION` w pliku `Dockerfile` oraz wersji dodatku (`version`) w `config.yaml` — każda zmiana wersji wymusza pełną przebudowę obrazu na każdym Home Assistant.
