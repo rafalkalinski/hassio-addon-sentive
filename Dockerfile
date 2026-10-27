@@ -28,7 +28,7 @@ RUN ARCH="${BUILD_ARCH}" && \
     case "$ARCH" in \
         amd64)   CF_ARCH="linux-amd64" ;; \
         aarch64) CF_ARCH="linux-arm64" ;; \
-        armv7)   CF_ARCH="linux-armv6" ;; \
+        armv7)   CF_ARCH="linux-armhf" ;; \
         *)       echo "Unsupported arch: $ARCH" && exit 1 ;; \
     esac && \
     curl -fsSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-${CF_ARCH}" \
