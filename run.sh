@@ -45,4 +45,5 @@ fi
 
 # Start cloudflared tunnel
 TUNNEL_TOKEN=$(cat "$DATA_DIR/cloudflared-token")
+bashio::log.info "cloudflared: $(cloudflared --version)"
 exec cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN"

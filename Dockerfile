@@ -1,6 +1,11 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
+# Supervisor passes the add-on version (config.yaml) as a build arg. ARG values are
+# part of the build environment of all following RUN steps, so a version bump
+# invalidates the layer cache below and forces a full rebuild on every HA.
+ARG BUILD_VERSION
+
 # Install Python and dependencies
 RUN apk add --no-cache \
     python3 \
@@ -16,8 +21,9 @@ RUN apk add --no-cache \
 
 ENV TZ=Europe/Warsaw
 
-# Install cloudflared based on architecture
+# Install cloudflared based on architecture (pinned; bump to update the fleet)
 ARG BUILD_ARCH
+ARG CLOUDFLARED_VERSION=2026.10.4
 RUN ARCH="${BUILD_ARCH}" && \
     case "$ARCH" in \
         amd64)   CF_ARCH="linux-amd64" ;; \
@@ -25,7 +31,7 @@ RUN ARCH="${BUILD_ARCH}" && \
         armv7)   CF_ARCH="linux-armv6" ;; \
         *)       echo "Unsupported arch: $ARCH" && exit 1 ;; \
     esac && \
-    curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-${CF_ARCH}" \
+    curl -fsSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-${CF_ARCH}" \
         -o /usr/local/bin/cloudflared && \
     chmod +x /usr/local/bin/cloudflared
 

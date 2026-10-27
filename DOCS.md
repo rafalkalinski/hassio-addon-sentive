@@ -54,3 +54,14 @@ Jeśli zapomnisz PIN-u, skontaktuj się z zespołem Sentive: **kontakt@sentive.i
 Jeśli dodatek nie uruchamia się lub wyświetla błąd, napisz do nas: **kontakt@sentive.it**.
 
 Opisz krótko, co widzisz na ekranie lub w logach dodatku — postaramy się pomóc jak najszybciej.
+
+---
+
+## Updating / rebuilding the add-on locally
+
+If the instance is offline in Sentive OPS (no tunnel connection), the add-on can be updated or rebuilt directly from the Home Assistant UI. An HA administrator account is required.
+
+- **Update:** Settings -> Add-ons -> Sentive OPS -> **Update** (shown when a newer version is available). If it is not shown yet: Add-on Store -> top-right menu -> **Check for updates**, then return to the add-on page.
+- **Rebuild:** Settings -> Add-ons -> Sentive OPS -> top-right menu -> **Rebuild** (rebuilds the image from the current version).
+
+Updating cloudflared requires bumping `CLOUDFLARED_VERSION` in `Dockerfile` and the add-on `version` in `config.yaml`; every version bump forces a full image rebuild on each Home Assistant.
